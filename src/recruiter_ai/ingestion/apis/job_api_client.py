@@ -18,6 +18,14 @@ from typing import Any
 
 import httpx
 
+try:
+    from recruiter_ai.ingestion.apis.job_response_formatter import (
+        format_jobs_csv,
+        format_jobs_table,
+    )
+except ModuleNotFoundError:  # pragma: no cover - direct script execution fallback.
+    from job_response_formatter import format_jobs_csv, format_jobs_table
+
 # Keep the root URL separate from endpoint paths so the client can support
 # additional Job Data Lake endpoints without changing its construction.
 JOB_DATA_LAKE_BASE_URL = "https://api.jobdatalake.com/"
@@ -128,6 +136,17 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print the API query URL to stderr before sending the request.",
     )
+    parser.add_argument(
+        "--format",
+        choices=("table", "csv", "json"),
+        default="table",
+        help="Output format for the API response.",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="Optional file path for formatted output. Stdout is used when omitted.",
+    )
     parser.add_argument("--job-function", help="Filter by job function.")
     parser.add_argument("--salary-min", type=int, help="Minimum salary filter.")
     parser.add_argument(
@@ -182,7 +201,8 @@ async def run_from_cli() -> int:
         remote_type=RemoteType(args.remote_type) if args.remote_type else None,
     )
     if args.print_query:
-        # Send troubleshooting output to stderr so stdout remains valid JSON.
+        # Send troubleshooting output to stderr so stdout remains reserved for
+        # the selected response format.
         print(f"Query URL: {client.build_query_url(params, args.endpoint)}", file=sys.stderr)
 
     try:
@@ -200,7 +220,19 @@ async def run_from_cli() -> int:
         print("API response was not valid JSON.", file=sys.stderr)
         return 1
 
-    print(json.dumps(result, indent=2))
+    if args.format == "json":
+        output = f"{json.dumps(result, indent=2)}\n"
+    elif args.format == "csv":
+        output = format_jobs_csv(result)
+    else:
+        output = f"{format_jobs_table(result)}\n"
+
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(output, encoding="utf-8", newline="")
+    else:
+        print(output, end="")
+
     return 0
 
 
