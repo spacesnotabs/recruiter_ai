@@ -1,0 +1,41 @@
+# Python caches and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local configuration and secrets
+.env
+*.env
+src/recruiter_ai/config/.env
+
+# Test, coverage, and type-checker caches
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.tox/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Local data outputs
+data/*
+!data/raw/
+!data/processed/
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
