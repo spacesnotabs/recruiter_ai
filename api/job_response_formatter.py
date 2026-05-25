@@ -1,8 +1,7 @@
 """Presentation helpers for Job Data Lake jobs API responses.
 
-The API client returns the upstream JSON unchanged so ingestion code can keep a
-stable boundary. This module converts that response into human-readable table
-or CSV output for local inspection and early workflow debugging.
+The API client returns the upstream JSON unchanged. This module converts that
+response into human-readable table or CSV output for local inspection.
 """
 
 from __future__ import annotations
@@ -47,12 +46,7 @@ MAX_TABLE_CELL_WIDTH = 42
 
 @dataclass(frozen=True)
 class JobDisplayRow:
-    """Normalized display fields for one Job Data Lake job record.
-
-    Values are stored as strings so the same row can be rendered into a terminal
-    table or serialized as CSV without leaking presentation decisions into the
-    API client.
-    """
+    """Normalized display fields for one Job Data Lake job record."""
 
     title: str
     company: str
@@ -94,12 +88,7 @@ class JobDisplayRow:
 
 
 def build_display_rows(response: Mapping[str, Any]) -> list[JobDisplayRow]:
-    """Convert a jobs API response into normalized display rows.
-
-    Missing or null fields are represented as empty strings. If the response
-    contains a non-list ``jobs`` value, no rows are returned because the payload
-    does not match the documented search response shape.
-    """
+    """Convert a jobs API response into normalized display rows."""
     jobs = response.get("jobs")
     if not isinstance(jobs, list):
         return []
@@ -243,3 +232,4 @@ def _truncate(value: str, max_width: int) -> str:
     if max_width <= 3:
         return value[:max_width]
     return f"{value[: max_width - 3]}..."
+

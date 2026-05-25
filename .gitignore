@@ -11,7 +11,6 @@ env/
 # Local configuration and secrets
 .env
 *.env
-src/recruiter_ai/config/.env
 
 # Test, coverage, and type-checker caches
 .pytest_cache/
@@ -26,16 +25,8 @@ build/
 dist/
 *.egg-info/
 
-# Local data outputs
-data/*
-!data/raw/
-!data/processed/
-!data/raw/.gitkeep
-!data/processed/.gitkeep
-
 # OS and editor files
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
-

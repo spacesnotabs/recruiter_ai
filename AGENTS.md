@@ -1,63 +1,46 @@
 # Agent Guide
 
-This repository is a Python project for recruiter-oriented AI workflows. It is
-currently a scaffold with one implemented module:
-`src/recruiter_ai/ingestion/apis/job_api_client.py`, an async `httpx` client and
-CLI for the Job Data Lake jobs API.
+This repository is intentionally small right now. Keep it that way until the
+project needs more structure.
 
 ## Repository Shape
 
-- `src/recruiter_ai/agents`: agent implementations.
-- `src/recruiter_ai/chains`: chain or pipeline composition.
-- `src/recruiter_ai/cli`: command-line entrypoints.
-- `src/recruiter_ai/config`: local configuration. Treat `.env` files as secrets.
-- `src/recruiter_ai/database`: migrations, models, and repositories.
-- `src/recruiter_ai/domain`: core domain models and business rules.
-- `src/recruiter_ai/graphs`: graph workflow definitions.
-- `src/recruiter_ai/ingestion`: external data ingestion, API clients, and scrapers.
-- `src/recruiter_ai/mcp_server`: MCP server integration.
-- `src/recruiter_ai/prompts`: prompt templates and prompt assets.
-- `src/recruiter_ai/services`: application services and orchestration logic.
-- `src/recruiter_ai/tools`: tool adapters exposed to agents or workflows.
-- `src/recruiter_ai/utils`: shared helpers with no domain ownership.
-- `tests/unit`, `tests/integration`, `tests/fixtures`: test structure.
-- `data/raw` and `data/processed`: local data areas. Do not commit bulky,
-  generated, private, or credential-bearing data.
-- `frontend`, `infra`, `scripts`, and `docs` are present but currently empty.
+- `main.py`: command-line entrypoint. It parses arguments, calls the API client,
+  and prints or writes the result.
+- `api/`: Job Data Lake API code and response formatting helpers.
+- `models/`: small shared data models, such as job search parameters.
+- `.env`: optional local secret file. Treat it as private and do not print it.
 
 ## Current Runtime Assumptions
 
 - Use Python 3.12; the local virtual environment is `.venv`.
 - Existing code depends on `httpx`.
 - No `pyproject.toml`, lockfile, or test configuration is present yet.
-- The workspace is not currently initialized as a Git repository.
 - Prefer PowerShell-friendly commands when documenting local usage.
 
 Useful commands from the repository root:
 
 ```powershell
-$env:PYTHONPATH = "src"; .\.venv\Scripts\python.exe -m recruiter_ai.ingestion.apis.job_api_client --help
-.\.venv\Scripts\python.exe src\recruiter_ai\ingestion\apis\job_api_client.py --help
+.\.venv\Scripts\python.exe .\main.py --help
+.\.venv\Scripts\python.exe .\main.py --keywords "backend engineer" --format table
 ```
 
-If package metadata is added later, update these commands to use the supported
-entrypoint and test runner.
+Set the API key with `--api-key`, the `JOB_API_KEY` environment variable, or
+`JOB_DATA_LAKE_API_KEY` in `.env`.
 
 ## Coding Conventions
 
-- Keep modules focused on their layer. For example, API request and response
-  behavior belongs in `ingestion/apis`; CLI parsing should either stay thin or
-  move to `cli` when it grows.
+- Keep `main.py` thin. API request and response behavior belongs in `api/`.
 - Prefer small typed dataclasses or explicit domain models for structured data.
 - Keep external API constants near the client that owns them unless they become
   shared configuration.
-- Use async APIs consistently when extending `JobApiClient`; do not mix blocking
-  HTTP calls into async flows.
+- Use async APIs consistently when extending `JobDataLakeClient`; do not mix
+  blocking HTTP calls into async flows.
 - Preserve the current style: type hints, `from __future__ import annotations`,
   narrow helper functions, and clear error handling at boundaries.
 - Avoid adding dependencies for trivial parsing or formatting. Add a dependency
   only when it removes meaningful complexity or is needed by the product.
-- Do not read, print, or commit secrets from `src/recruiter_ai/config/.env`.
+- Do not read, print, or commit secrets from `.env`.
 
 ## Documentation Standards
 
@@ -85,10 +68,8 @@ Document all code well. In this repo that means:
 
 ## Testing Guidance
 
-- Add focused unit tests under `tests/unit` for pure helpers, query building,
-  parsing, and error handling.
-- Add integration tests under `tests/integration` only for behavior that crosses
-  process, database, network, or service boundaries.
+- No test structure is currently checked in.
+- Add focused tests only when they pull their weight for the current change.
 - Mock external HTTP calls; do not require live Job Data Lake requests in normal
   tests.
 - When changing CLI behavior, test argument parsing, missing configuration, and
