@@ -1,4 +1,7 @@
 """Command-line entrypoint for querying Job Data Lake jobs."""
+
+from __future__ import annotations
+
 import argparse
 import asyncio
 import json
@@ -17,14 +20,30 @@ from api.job_data_lake import (
     read_env_file_value,
 )
 from api.job_response_formatter import format_jobs_csv, format_jobs_table
-from models.job_search_params import JobSearchParams, RemoteType
+from models.job_search_params import JobFunction, JobSearchParams, RemoteType
+
+
+_JOB_PARAM_FILE_FIELDS = {
+    "keywords",
+    "job_function",
+    "location",
+    "salary_min",
+    "remote_type",
+}
 
 
 def parse_args() -> argparse.Namespace:
     """Parse command-line options for a Job Data Lake job search."""
     parser = argparse.ArgumentParser(description="Fetch jobs from Job Data Lake.")
+
+    parser.add_argument("--params-file", type=Path, help="Path to a JSON file containing job search parameters.")
     parser.add_argument("--keywords", help="Search keywords for job listings.")
-    parser.add_argument("--job-function", help="Filter by job function.")
+    parser.add_argument(
+        "--job-function",
+        choices=[job_function.value for job_function in JobFunction],
+        help="Filter by job function.",
+    )
+    parser.add_argument("--location", help='Free-text location filter, such as "Remote" or "San Francisco".')
     parser.add_argument("--salary-min", type=int, help="Minimum salary filter.")
     parser.add_argument(
         "--remote-type",
@@ -54,7 +73,68 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print the API query URL to stderr before sending the request.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.params_file:
+        _apply_params_file(args, parser)
+
+    return args
+
+
+def _apply_params_file(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    """Load job search parameter defaults from a JSON file into parsed arguments."""
+    file_params = _read_params_file(args.params_file, parser)
+    for field_name in _JOB_PARAM_FILE_FIELDS:
+        if getattr(args, field_name) is None and field_name in file_params:
+            setattr(args, field_name, file_params[field_name])
+
+
+def _read_params_file(params_file: Path, parser: argparse.ArgumentParser) -> dict[str, object]:
+    """Read and validate a JSON object containing supported job search parameters."""
+    try:
+        raw_params = json.loads(params_file.read_text(encoding="utf-8"))
+    except OSError as error:
+        parser.error(f"Could not read --params-file '{params_file}': {error}")
+    except json.JSONDecodeError as error:
+        parser.error(f"--params-file '{params_file}' is not valid JSON: {error}")
+
+    if not isinstance(raw_params, dict):
+        parser.error("--params-file must contain a JSON object.")
+
+    unknown_fields = set(raw_params) - _JOB_PARAM_FILE_FIELDS
+    if unknown_fields:
+        fields = ", ".join(sorted(unknown_fields))
+        allowed_fields = ", ".join(sorted(_JOB_PARAM_FILE_FIELDS))
+        parser.error(f"--params-file contains unsupported field(s): {fields}. Allowed fields: {allowed_fields}.")
+
+    for field_name, field_value in raw_params.items():
+        _validate_params_file_value(field_name, field_value, parser)
+
+    return raw_params
+
+
+def _validate_params_file_value(
+    field_name: str,
+    field_value: object,
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Validate one JSON field from a params file against CLI argument types."""
+    if field_value is None:
+        return
+
+    if field_name in {"keywords", "location"} and not isinstance(field_value, str):
+        parser.error(f"--params-file field '{field_name}' must be a string.")
+
+    if field_name == "job_function" and field_value not in {job_function.value for job_function in JobFunction}:
+        choices = ", ".join(job_function.value for job_function in JobFunction)
+        parser.error(f"--params-file field 'job_function' must be one of: {choices}.")
+
+    if field_name == "salary_min" and (not isinstance(field_value, int) or isinstance(field_value, bool)):
+        parser.error("--params-file field 'salary_min' must be an integer.")
+
+    if field_name == "remote_type" and field_value not in {remote_type.value for remote_type in RemoteType}:
+        choices = ", ".join(remote_type.value for remote_type in RemoteType)
+        parser.error(f"--params-file field 'remote_type' must be one of: {choices}.")
 
 
 async def run() -> int:
@@ -70,7 +150,8 @@ async def run() -> int:
 
     params = JobSearchParams(
         keywords=args.keywords,
-        job_function=args.job_function,
+        job_function=JobFunction(args.job_function) if args.job_function else None,
+        location=args.location,
         salary_min=args.salary_min,
         remote_type=RemoteType(args.remote_type) if args.remote_type else None,
     )
@@ -79,6 +160,7 @@ async def run() -> int:
     if args.print_query:
         print(f"Query URL: {client.build_url(args.endpoint, params.to_query_params())}", file=sys.stderr)
 
+    # call the API to get the job data
     try:
         result = await client.get(args.endpoint, params.to_query_params())
     except httpx.HTTPStatusError as error:
@@ -91,6 +173,7 @@ async def run() -> int:
         print("API response was not valid JSON.", file=sys.stderr)
         return 1
 
+    # handle the job data
     if args.format == "json":
         output = f"{json.dumps(result, indent=2)}\n"
     elif args.format == "csv":
