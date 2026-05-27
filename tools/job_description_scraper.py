@@ -1,9 +1,9 @@
 """Fetch and extract job posting details from a public job URL.
 
 The scraper keeps dependencies intentionally small: it uses ``httpx`` for
-network requests and standard-library parsers for HTML and JSON-LD extraction.
-It first looks for schema.org ``JobPosting`` structured data, which is usually
-the cleanest source, and then falls back to visible page text from likely job
+network requests and BeautifulSoup for HTML and JSON-LD extraction. It first
+looks for schema.org ``JobPosting`` structured data, which is usually the
+cleanest source, and then falls back to visible page text from likely job
 description containers.
 """
 
@@ -13,14 +13,17 @@ import asyncio
 import argparse
 import html
 import json
+import logging
 import re
 import sys
 from dataclasses import asdict, dataclass
-from html.parser import HTMLParser
 from typing import Any, Iterable
 
+from bs4 import BeautifulSoup
+from bs4.element import NavigableString, PageElement, Tag
 import httpx
 
+logger = logging.getLogger(__name__)
 
 DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -39,6 +42,23 @@ DESCRIPTION_ATTRIBUTE_MARKERS = (
     "jobcontent",
     "job-content",
 )
+
+TEXT_BLOCK_TAGS = {
+    "article",
+    "blockquote",
+    "div",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "li",
+    "main",
+    "p",
+    "section",
+    "tr",
+}
 
 
 @dataclass(frozen=True)
@@ -90,6 +110,7 @@ async def fetch_job_posting(
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "User-Agent": user_agent,
     }
+    logger.info(f"Fetching job posting: {url=}, {timeout_seconds=}, {user_agent=}")
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=timeout_seconds) as client:
             response = await client.get(url, headers=headers)
@@ -116,6 +137,7 @@ def fetch_job_posting_sync(
     application code should call ``fetch_job_posting`` directly to avoid nested
     event-loop issues.
     """
+    logger.info(f"Fetching job posting: {url=}, {timeout_seconds=}, {user_agent=}")
     return asyncio.run(fetch_job_posting(url, timeout_seconds=timeout_seconds, user_agent=user_agent))
 
 
@@ -126,18 +148,17 @@ def extract_job_posting_from_html(html_text: str, url: str) -> JobPostingDetails
     names. If no structured posting is present, the fallback parser returns the
     document title and the most likely visible description text block.
     """
-    parser = _JobPageHTMLParser()
-    parser.feed(html_text)
-    parser.close()
+    soup = BeautifulSoup(html_text, "html.parser")
+    title = _page_title(soup)
 
-    structured_posting = _find_job_posting_json_ld(parser.json_ld_blocks)
+    structured_posting = _find_job_posting_json_ld(_json_ld_blocks(soup))
     if structured_posting:
-        return _details_from_structured_posting(structured_posting, url, parser)
+        return _details_from_structured_posting(structured_posting, url, title)
 
     return JobPostingDetails(
         url=url,
-        title=_clean_text(parser.first_heading or parser.title),
-        description=parser.best_description_text(),
+        title=title,
+        description=_best_description_text(soup),
     )
 
 
@@ -170,12 +191,12 @@ def main() -> int:
 def _details_from_structured_posting(
     posting: dict[str, Any],
     url: str,
-    parser: "_JobPageHTMLParser",
+    title_fallback: str | None,
 ) -> JobPostingDetails:
     """Build ``JobPostingDetails`` from parsed schema.org data."""
     return JobPostingDetails(
         url=url,
-        title=_string_or_none(posting.get("title")) or _clean_text(parser.first_heading or parser.title),
+        title=_string_or_none(posting.get("title")) or title_fallback,
         company_name=_organization_name(posting.get("hiringOrganization")),
         location=_job_location(posting.get("jobLocation") or posting.get("applicantLocationRequirements")),
         description=_html_to_text(_string_or_none(posting.get("description"))),
@@ -299,15 +320,105 @@ def _string_or_none(value: Any) -> str | None:
     return _clean_text(str(value))
 
 
+def _json_ld_blocks(soup: BeautifulSoup) -> list[str]:
+    """Return raw JSON-LD script contents from an HTML document."""
+    blocks: list[str] = []
+    for script in soup.find_all("script"):
+        script_type = " ".join(script.get_attribute_list("type")).lower()
+        if "ld+json" not in script_type:
+            continue
+
+        block = script.string or script.get_text()
+        if block and block.strip():
+            blocks.append(block.strip())
+
+    return blocks
+
+
+def _page_title(soup: BeautifulSoup) -> str | None:
+    """Return the best display title from a page H1 or document title."""
+    heading = soup.find("h1")
+    if isinstance(heading, Tag):
+        heading_text = _tag_text(heading)
+        if heading_text:
+            return heading_text
+
+    if soup.title:
+        return _clean_text(soup.title.get_text(" ", strip=True))
+
+    return None
+
+
+def _best_description_text(soup: BeautifulSoup) -> str | None:
+    """Return the longest useful text from likely job description containers."""
+    candidates = [
+        text
+        for tag in soup.find_all(_is_likely_description_container)
+        if isinstance(tag, Tag)
+        for text in [_tag_text(tag)]
+        if text and len(text) >= 120
+    ]
+    return max(candidates, key=len) if candidates else None
+
+
+def _is_likely_description_container(tag: Tag) -> bool:
+    """Return whether an element looks like a job description container."""
+    if tag.name not in {"main", "article", "section", "div"}:
+        return False
+
+    haystack = " ".join(
+        _attribute_values(tag.get(name))
+        for name in ("id", "class", "data-testid", "data-test", "aria-label", "itemprop")
+    ).lower()
+    return any(marker in haystack for marker in DESCRIPTION_ATTRIBUTE_MARKERS)
+
+
+def _attribute_values(value: Any) -> str:
+    """Return one searchable string from a BeautifulSoup attribute value."""
+    if value is None:
+        return ""
+    if isinstance(value, list):
+        return " ".join(str(item) for item in value)
+    return str(value)
+
+
 def _html_to_text(value: str | None) -> str | None:
     """Convert an HTML fragment to readable plain text."""
     if not value:
         return None
 
-    parser = _VisibleTextHTMLParser()
-    parser.feed(value)
-    parser.close()
-    return parser.text() or _clean_text(html.unescape(value))
+    soup = BeautifulSoup(value, "html.parser")
+    return _tag_text(soup) or _clean_text(html.unescape(value))
+
+
+def _tag_text(tag: BeautifulSoup | Tag) -> str | None:
+    """Return readable text from a BeautifulSoup node."""
+    return _clean_text(" ".join(_visible_text_parts(tag)))
+
+
+def _visible_text_parts(node: PageElement) -> Iterable[str]:
+    """Yield visible text with explicit breaks around block-level elements."""
+    if isinstance(node, NavigableString):
+        yield str(node)
+        return
+
+    if not isinstance(node, Tag) and not isinstance(node, BeautifulSoup):
+        return
+
+    if isinstance(node, Tag):
+        if node.name in {"script", "style", "noscript"}:
+            return
+        if node.name == "br":
+            yield "\n"
+            return
+        if node.name in TEXT_BLOCK_TAGS:
+            yield "\n"
+
+    for child in node.children:
+        yield from _visible_text_parts(child)
+
+    if isinstance(node, Tag) and node.name in TEXT_BLOCK_TAGS:
+        yield "\n"
 
 
 def _clean_text(value: str | None) -> str | None:
@@ -315,150 +426,11 @@ def _clean_text(value: str | None) -> str | None:
     if value is None:
         return None
 
-    normalized = html.unescape(value).replace("\r\n", "\n").replace("\r", "\n")
+    normalized = html.unescape(value).replace("\xa0", " ").replace("\r\n", "\n").replace("\r", "\n")
     normalized = re.sub(r"[ \t\f\v]+", " ", normalized)
     normalized = re.sub(r" *\n *", "\n", normalized)
     normalized = re.sub(r"\n{3,}", "\n\n", normalized)
     return normalized.strip() or None
-
-
-class _VisibleTextHTMLParser(HTMLParser):
-    """Collect visible text from an HTML fragment."""
-
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self._hidden_depth = 0
-        self._parts: list[str] = []
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        """Track hidden tags and add breaks for block-level content."""
-        if tag in {"script", "style", "noscript"}:
-            self._hidden_depth += 1
-        if tag in {"br", "p", "div", "li", "section", "article", "h1", "h2", "h3"}:
-            self._parts.append("\n")
-
-    def handle_endtag(self, tag: str) -> None:
-        """Track hidden tag exits and add breaks for block-level content."""
-        if tag in {"script", "style", "noscript"} and self._hidden_depth:
-            self._hidden_depth -= 1
-        if tag in {"p", "div", "li", "section", "article", "h1", "h2", "h3"}:
-            self._parts.append("\n")
-
-    def handle_data(self, data: str) -> None:
-        """Collect visible text nodes."""
-        if not self._hidden_depth:
-            self._parts.append(data)
-
-    def text(self) -> str | None:
-        """Return normalized visible text."""
-        return _clean_text(" ".join(self._parts))
-
-
-class _JobPageHTMLParser(HTMLParser):
-    """Collect JSON-LD, title text, headings, and likely description blocks."""
-
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.json_ld_blocks: list[str] = []
-        self.title: str | None = None
-        self.first_heading: str | None = None
-        self._active_script_type: str | None = None
-        self._script_parts: list[str] = []
-        self._active_title = False
-        self._title_parts: list[str] = []
-        self._capture_stack: list[_CapturedBlock] = []
-        self._description_candidates: list[str] = []
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        """Start collecting relevant HTML elements."""
-        attrs_dict = {key.lower(): value or "" for key, value in attrs}
-        if tag == "script":
-            self._active_script_type = attrs_dict.get("type", "")
-            self._script_parts = []
-            return
-
-        if tag == "title":
-            self._active_title = True
-            self._title_parts = []
-            return
-
-        if tag in {"h1", "main", "article", "section", "div"} and self._is_likely_description_container(attrs_dict, tag):
-            self._capture_stack.append(_CapturedBlock(tag=tag, parts=[]))
-
-        if tag in {"br", "p", "li", "div", "section", "article", "h1", "h2", "h3"}:
-            self._append_to_capture("\n")
-
-    def handle_endtag(self, tag: str) -> None:
-        """Stop collecting relevant HTML elements."""
-        if tag == "script":
-            if "ld+json" in (self._active_script_type or ""):
-                block = "".join(self._script_parts).strip()
-                if block:
-                    self.json_ld_blocks.append(block)
-            self._active_script_type = None
-            self._script_parts = []
-            return
-
-        if tag == "title":
-            self.title = _clean_text("".join(self._title_parts))
-            self._active_title = False
-            self._title_parts = []
-            return
-
-        if tag in {"p", "li", "div", "section", "article", "h1", "h2", "h3"}:
-            self._append_to_capture("\n")
-
-        if self._capture_stack and self._capture_stack[-1].tag == tag:
-            block = self._capture_stack.pop()
-            text = _clean_text(" ".join(block.parts))
-            if text:
-                if tag == "h1" and not self.first_heading:
-                    self.first_heading = text
-                else:
-                    self._description_candidates.append(text)
-
-    def handle_data(self, data: str) -> None:
-        """Collect data for active JSON-LD, title, and description blocks."""
-        if self._active_script_type is not None:
-            self._script_parts.append(data)
-            return
-
-        if self._active_title:
-            self._title_parts.append(data)
-
-        self._append_to_capture(data)
-
-    def best_description_text(self) -> str | None:
-        """Return the most useful fallback description text from the page."""
-        long_candidates = [candidate for candidate in self._description_candidates if len(candidate) >= 120]
-        if not long_candidates:
-            return None
-        return max(long_candidates, key=len)
-
-    def _append_to_capture(self, value: str) -> None:
-        """Append text to every active capture block."""
-        for block in self._capture_stack:
-            block.parts.append(value)
-
-    @staticmethod
-    def _is_likely_description_container(attrs: dict[str, str], tag: str) -> bool:
-        """Return whether an element looks like a job description container."""
-        if tag == "h1":
-            return True
-
-        haystack = " ".join(
-            attrs.get(name, "")
-            for name in ("id", "class", "data-testid", "data-test", "aria-label", "itemprop")
-        ).lower()
-        return any(marker in haystack for marker in DESCRIPTION_ATTRIBUTE_MARKERS)
-
-
-@dataclass
-class _CapturedBlock:
-    """Internal text capture state for one likely description block."""
-
-    tag: str
-    parts: list[str]
 
 
 if __name__ == "__main__":

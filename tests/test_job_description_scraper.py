@@ -78,6 +78,39 @@ class JobDescriptionScraperTests(unittest.TestCase):
         self.assertIn("Partner with hiring managers", details.description or "")
         self.assertIn("hiring velocity", details.description or "")
 
+    def test_fallback_handles_nested_greenhouse_description_blocks(self) -> None:
+        """Nested Greenhouse description markup is captured as one full block."""
+        html = """
+        <html>
+          <head>
+            <title>Job Application for Senior Software Engineer at Temporal</title>
+          </head>
+          <body>
+            <h1>Senior Software Engineer</h1>
+            <div class="job__description body">
+              <div>
+                <h3><strong>About Us</strong></h3>
+                <div>Temporal builds durable execution primitives.</div>
+              </div>
+              <div>
+                <div>
+                  <p><strong>Senior Software Engineer</strong></p>
+                  <p>Build managed compute systems for production workloads.</p>
+                  <p>Partner with product and operations to improve reliability.</p>
+                </div>
+              </div>
+            </div>
+          </body>
+        </html>
+        """
+
+        details = extract_job_posting_from_html(html, "https://example.test/job")
+
+        self.assertEqual(details.title, "Senior Software Engineer")
+        self.assertIn("Temporal builds durable execution primitives.", details.description or "")
+        self.assertIn("Build managed compute systems", details.description or "")
+        self.assertIn("improve reliability", details.description or "")
+
 
 if __name__ == "__main__":
     unittest.main()

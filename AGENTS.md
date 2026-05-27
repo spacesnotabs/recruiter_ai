@@ -14,7 +14,7 @@ project needs more structure.
 ## Current Runtime Assumptions
 
 - Use Python 3.12; the local virtual environment is `.venv`.
-- Existing code depends on `httpx`.
+- Existing code depends on `httpx` and `beautifulsoup4`.
 - No `pyproject.toml`, lockfile, or test configuration is present yet.
 - Prefer PowerShell-friendly commands when documenting local usage.
 
@@ -23,6 +23,8 @@ Useful commands from the repository root:
 ```powershell
 .\.venv\Scripts\python.exe .\main.py --help
 .\.venv\Scripts\python.exe .\main.py --keywords "backend engineer" --format table
+.\.venv\Scripts\python.exe -m pip install -r .\requirements.txt
+.\.venv\Scripts\python.exe -m pytest
 ```
 
 Set the API key with `--api-key`, the `JOB_API_KEY` environment variable, or
