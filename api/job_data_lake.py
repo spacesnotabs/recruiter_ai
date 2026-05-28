@@ -57,20 +57,3 @@ class JobDataLakeClient:
             JOB_DATA_LAKE_JOBS_ENDPOINT,
             params.to_query_params() if params else None,
         )
-
-
-def read_env_file_value(env_path: Path, variable_name: str) -> str | None:
-    """Read a single variable from a simple KEY=VALUE environment file."""
-    if not env_path.exists():
-        return None
-
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        stripped_line = line.strip()
-        if not stripped_line or stripped_line.startswith("#") or "=" not in stripped_line:
-            continue
-
-        key, value = stripped_line.split("=", 1)
-        if key.strip() == variable_name:
-            return value.strip().strip("'\"") or None
-
-    return None

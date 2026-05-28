@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from agent.controller import OPEN_ROUTER_API_KEY_ENV_VAR, Controller
+
 import argparse
 import asyncio
 import json
 import os
 import sys
+import logging
 from pathlib import Path
 
 import httpx
@@ -17,11 +20,14 @@ from api.job_data_lake import (
     JOB_DATA_LAKE_JOBS_ENDPOINT,
     ROOT_ENV_PATH,
     JobDataLakeClient,
-    read_env_file_value,
 )
 from api.job_response_formatter import format_jobs_csv, format_jobs_table
 from models.job_search_params import JobFunction, JobSearchParams, RemoteType
+from tools.env_file import read_env_file_value
+from tools.job_description_scraper import fetch_job_posting, JobPostingDetails
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", filename="app.log")
+logger = logging.getLogger(__name__)
 
 _JOB_PARAM_FILE_FIELDS = {
     "keywords",
@@ -57,6 +63,11 @@ def parse_args() -> argparse.Namespace:
         help="API endpoint path to call, relative to the base URL.",
     )
     parser.add_argument("--api-key", default=os.getenv("JOB_API_KEY"))
+    parser.add_argument(
+        "--openrouter-api-key",
+        default=os.getenv(OPEN_ROUTER_API_KEY_ENV_VAR),
+        help="OpenRouter API key used for AI prompting.",
+    )
     parser.add_argument(
         "--format",
         choices=("table", "csv", "json"),
@@ -136,6 +147,16 @@ def _validate_params_file_value(
         choices = ", ".join(remote_type.value for remote_type in RemoteType)
         parser.error(f"--params-file field 'remote_type' must be one of: {choices}.")
 
+async def _print_job_details(json_data: dict):
+    """
+    Print the job description for the first job in the JSON data.
+    """
+    job_to_print = json_data["jobs"][0]
+    url = job_to_print.get("url", None)
+    if url is not None:
+        desc: JobPostingDetails = await fetch_job_posting(url=url)
+        print(desc.description)
+
 
 async def run() -> int:
     """Run the CLI and return a process exit code."""
@@ -144,6 +165,13 @@ async def run() -> int:
     if not api_key:
         print(
             "Provide --api-key, set JOB_API_KEY, or add JOB_DATA_LAKE_API_KEY to .env.",
+            file=sys.stderr,
+        )
+        return 1
+    openrouter_api_key = read_env_file_value(ROOT_ENV_PATH, OPEN_ROUTER_API_KEY_ENV_VAR) or args.openrouter_api_key
+    if not openrouter_api_key:
+        print(
+            "Provide --openrouter-api-key, set OPENROUTER_API_KEY, or add OPENROUTER_API_KEY to .env.",
             file=sys.stderr,
         )
         return 1
@@ -173,13 +201,15 @@ async def run() -> int:
         print("API response was not valid JSON.", file=sys.stderr)
         return 1
 
+    await _print_job_details(json_data=result)
+
     # handle the job data
     if args.format == "json":
-        output = f"{json.dumps(result, indent=2)}\n"
+        output: str = f"{json.dumps(result, indent=2)}\n"
     elif args.format == "csv":
-        output = format_jobs_csv(result)
+        output: str = format_jobs_csv(result)
     else:
-        output = f"{format_jobs_table(result)}\n"
+        output: str = f"{format_jobs_table(result)}\n"
 
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -187,6 +217,9 @@ async def run() -> int:
     else:
         print(output, end="")
 
+    controller = Controller(api_key=openrouter_api_key)
+    response = controller.prompt_model(prompt="Hey, how are you?")
+    print(f"AI response: {response}")
     return 0
 
 
