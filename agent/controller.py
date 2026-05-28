@@ -6,7 +6,7 @@ import os
 import logging
 from typing import Any
 
-from langchain.chat_models import init_chat_model
+from llm_langchain import LangChainLLM
 
 
 logger = logging.getLogger(__name__)
@@ -25,12 +25,11 @@ class Controller:
         """
         self.api_key = api_key
         os.environ[OPEN_ROUTER_API_KEY_ENV_VAR] = api_key
-        self.model = init_chat_model(
-            model="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        self.model: LangChainLLM = LangChainLLM(
+            model_name="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
             model_provider="openrouter",
         )
 
-    def prompt_model(self, prompt: str) -> Any:
+    def prompt_model(self, prompt: str) -> str | None:
         """Send a prompt to the configured model and return its response."""
-        logger.info(f"Prompting model with input: {prompt}")
-        return self.model.invoke(input=prompt)
+        return self.model.prompt(prompt)
