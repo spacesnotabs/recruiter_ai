@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import os
 import logging
-from typing import Any
 
-from llm_langchain import LangChainLLM
+from .llm_langchain import LangChainLLM
 
 
 logger = logging.getLogger(__name__)
@@ -29,6 +28,8 @@ class Controller:
             model_name="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
             model_provider="openrouter",
         )
+        self.model.set_system_prompt("You are a helpful assistant.")
+        self.model.configure()
 
     def prompt_model(self, prompt: str) -> str | None:
         """Send a prompt to the configured model and return its response."""
