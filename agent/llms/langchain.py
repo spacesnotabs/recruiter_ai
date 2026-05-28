@@ -8,16 +8,16 @@ from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
-from .llm_base import BaseLLM
+from .base import LLMClient
 
 logger = logging.getLogger(__name__)
 
 
-class LangChainLLM(BaseLLM):
-    """Language model wrapper that delegates chat completion to LangChain."""
+class LangChainChatClient(LLMClient):
+    """Language model client that delegates chat completion to LangChain."""
 
     def __init__(self, model_name: str, model_provider: str) -> None:
-        """Create a LangChain model wrapper for the given provider."""
+        """Create a LangChain model client for the given provider."""
         super().__init__(model_name)
         self._api_key: str = ""
         self._model: BaseChatModel | None = None

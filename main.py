@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from agent.controller import OPEN_ROUTER_API_KEY_ENV_VAR, Controller
+from agent.controller import OPEN_ROUTER_API_KEY_ENV_VAR, AgentController
 
 import argparse
 import asyncio
@@ -217,7 +217,7 @@ async def run() -> int:
     else:
         print(output, end="")
 
-    controller = Controller(api_key=openrouter_api_key)
+    controller = AgentController(api_key=openrouter_api_key)
     response = controller.prompt_model(prompt="Hey, how are you?")
     print(f"AI response: {response}")
     return 0
