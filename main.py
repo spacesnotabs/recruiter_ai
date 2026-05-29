@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from agent.controller import OPEN_ROUTER_API_KEY_ENV_VAR, AgentController
+from agent.agent_controller import OPEN_ROUTER_API_KEY_ENV_VAR, AgentController
 
 import argparse
 import asyncio
@@ -25,6 +25,7 @@ from api.job_response_formatter import format_jobs_csv, format_jobs_table
 from models.job_search_params import JobFunction, JobSearchParams, RemoteType
 from tools.env_file import read_env_file_value
 from tools.job_description_scraper import fetch_job_posting, JobPostingDetails
+from agent.workflows.job_search import run_job_search_workflow
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", filename="app.log")
 logger = logging.getLogger(__name__)
@@ -222,10 +223,19 @@ async def run() -> int:
     print(f"AI response: {response}")
     return 0
 
+async def run_workflow() -> int:
+    """Run the proof-of-concept LangGraph job search workflow."""
+    openrouter_api_key = read_env_file_value(ROOT_ENV_PATH, OPEN_ROUTER_API_KEY_ENV_VAR)
+    if openrouter_api_key is None:
+        return 0
+
+    controller = AgentController(api_key=openrouter_api_key)
+    return await run_job_search_workflow(controller)
+
 
 def main() -> int:
     """Run the async CLI entrypoint."""
-    return asyncio.run(run())
+    return asyncio.run(run_workflow())
 
 
 if __name__ == "__main__":
