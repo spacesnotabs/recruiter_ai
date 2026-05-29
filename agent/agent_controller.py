@@ -6,6 +6,7 @@ import os
 import logging
 
 from .llms.langchain import LangChainChatClient
+from langchain_core.language_models import BaseChatModel
 
 
 logger = logging.getLogger(__name__)
@@ -24,13 +25,16 @@ class AgentController:
         """
         self.api_key = api_key
         os.environ[OPEN_ROUTER_API_KEY_ENV_VAR] = api_key
-        self.model: LangChainChatClient = LangChainChatClient(
+        self._model_client: LangChainChatClient = LangChainChatClient(
             model_name="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
             model_provider="openrouter",
         )
-        self.model.set_system_prompt("You are a helpful assistant.")
-        self.model.configure()
+        self._model_client.set_system_prompt("You are a helpful assistant.")
+        self._model_client.configure()
 
     def prompt_model(self, prompt: str) -> str | None:
         """Send a prompt to the configured model and return its response."""
-        return self.model.prompt(prompt)
+        return self._model_client.prompt(prompt)
+    
+    def get_model(self) -> BaseChatModel | None:
+        return self._model_client.model
