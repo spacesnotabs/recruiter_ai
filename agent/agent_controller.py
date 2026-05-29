@@ -32,6 +32,9 @@ class AgentController:
         self._model_client.set_system_prompt("You are a helpful assistant.")
         self._model_client.configure()
 
+    def set_system_prompt(self, prompt: str) -> None:
+        self._model_client.set_system_prompt(prompt)
+
     def prompt_model(self, prompt: str) -> str | None:
         """Send a prompt to the configured model and return its response."""
         return self._model_client.prompt(prompt)
