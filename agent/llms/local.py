@@ -31,3 +31,7 @@ class LocalLLMClient(LLMClient):
     def configure(self, **kwargs: object) -> None:
         """Accept local model configuration options for future use."""
         pass
+
+    def prompt(self, prompt: str) -> str:
+        """Send a prompt to the local model client and return its response."""
+        return self.generate(prompt)

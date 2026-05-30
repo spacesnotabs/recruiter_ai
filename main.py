@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from agent.agent_controller import OPEN_ROUTER_API_KEY_ENV_VAR, AgentController
+from agent.factory import OPEN_ROUTER_API_KEY_ENV_VAR, ModelFactory, ModelProvider
 
 import argparse
 import asyncio
@@ -218,8 +218,8 @@ async def run() -> int:
     else:
         print(output, end="")
 
-    controller = AgentController(api_key=openrouter_api_key)
-    response = controller.prompt_model(prompt="Hey, how are you?")
+    model_factory = ModelFactory(provider=ModelProvider.OPENROUTER, api_key=openrouter_api_key)
+    response = model_factory.prompt_model(prompt="Hey, how are you?")
     print(f"AI response: {response}")
     return 0
 
@@ -229,8 +229,8 @@ async def run_workflow() -> int:
     if openrouter_api_key is None:
         return 0
 
-    controller = AgentController(api_key=openrouter_api_key)
-    return await run_job_search_workflow(controller)
+    model_factory = ModelFactory(provider=ModelProvider.OPENROUTER, api_key=openrouter_api_key)
+    return await run_job_search_workflow(model_factory)
 
 
 def main() -> int:

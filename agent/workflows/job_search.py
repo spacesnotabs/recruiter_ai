@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from langgraph.graph import END, START, StateGraph
 
-from agent.agent_controller import AgentController
-from agent.nodes.job_search import llm_call_node, prompt_user_node, set_controller
+from agent.factory import ModelFactory
+from agent.nodes.job_search import llm_call_node, prompt_user_node, set_model_factory
 from agent.prompts import JOB_SEARCH_PARAMETER_EXTRACTION_PROMPT
 from agent.state import MessageState
 
 
-def build_job_search_workflow(controller: AgentController):
+def build_job_search_workflow(model_factory: ModelFactory):
     """Build the proof-of-concept job search workflow graph."""
-    set_controller(controller)
+    set_model_factory(model_factory)
 
     workflow = StateGraph(MessageState)
 
@@ -26,10 +26,10 @@ def build_job_search_workflow(controller: AgentController):
     return workflow.compile()
 
 
-async def run_job_search_workflow(controller: AgentController) -> int:
+async def run_job_search_workflow(model_factory: ModelFactory) -> int:
     """Run one proof-of-concept job search workflow interaction."""
-    controller.set_system_prompt(prompt=JOB_SEARCH_PARAMETER_EXTRACTION_PROMPT)
-    app = build_job_search_workflow(controller)
+    model_factory.set_system_prompt(prompt=JOB_SEARCH_PARAMETER_EXTRACTION_PROMPT)
+    app = build_job_search_workflow(model_factory)
 
     messages = []
     state: MessageState = MessageState(messages=messages)

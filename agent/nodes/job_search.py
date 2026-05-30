@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from langchain.messages import AIMessage, HumanMessage
 
-from agent.agent_controller import AgentController
+from agent.factory import ModelFactory
 from agent.state import MessageState
 
 
-controller: AgentController | None = None
+model_factory: ModelFactory | None = None
 
 
-def set_controller(agent_controller: AgentController) -> None:
-    """Set the model controller used by the proof-of-concept LLM node."""
-    global controller
-    controller = agent_controller
+def set_model_factory(factory: ModelFactory) -> None:
+    """Set the model factory used by the proof-of-concept LLM node."""
+    global model_factory
+    model_factory = factory
 
 
 def prompt_user_node(state: MessageState) -> dict[str, list[HumanMessage]]:
@@ -25,8 +25,8 @@ def prompt_user_node(state: MessageState) -> dict[str, list[HumanMessage]]:
 
 def llm_call_node(state: MessageState) -> dict[str, list[AIMessage]] | None:
     """Prompt the configured LLM with the latest user message."""
-    if controller is not None:
-        response: str | None = controller.prompt_model(state["messages"][-1].text)
+    if model_factory is not None:
+        response: str | None = model_factory.prompt_model(state["messages"][-1].text)
         print(f"AI: {response}")
         return {"messages": [AIMessage(content=response)]}
 
