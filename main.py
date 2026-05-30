@@ -218,8 +218,8 @@ async def run() -> int:
     else:
         print(output, end="")
 
-    model_factory = ModelFactory(provider=ModelProvider.OPENROUTER, api_key=openrouter_api_key)
-    response = model_factory.prompt_model(prompt="Hey, how are you?")
+    model_client = ModelFactory.create(provider=ModelProvider.OPENROUTER, api_key=openrouter_api_key)
+    response = model_client.prompt(prompt="Hey, how are you?")
     print(f"AI response: {response}")
     return 0
 
@@ -229,8 +229,8 @@ async def run_workflow() -> int:
     if openrouter_api_key is None:
         return 0
 
-    model_factory = ModelFactory(provider=ModelProvider.OPENROUTER, api_key=openrouter_api_key)
-    return await run_job_search_workflow(model_factory)
+    model_client = ModelFactory.create(provider=ModelProvider.OPENROUTER, api_key=openrouter_api_key)
+    return await run_job_search_workflow(model_client)
 
 
 def main() -> int:

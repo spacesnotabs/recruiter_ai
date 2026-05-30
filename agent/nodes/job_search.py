@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from langchain.messages import AIMessage, HumanMessage
 
-from agent.factory import ModelFactory
+from agent.llms.base import LLMClient
 from agent.state import MessageState
 
 
-model_factory: ModelFactory | None = None
+model_client: LLMClient | None = None
 
 
-def set_model_factory(factory: ModelFactory) -> None:
-    """Set the model factory used by the proof-of-concept LLM node."""
-    global model_factory
-    model_factory = factory
+def set_model_client(client: LLMClient) -> None:
+    """Set the model client used by the proof-of-concept LLM node."""
+    global model_client
+    model_client = client
 
 
 def prompt_user_node(state: MessageState) -> dict[str, list[HumanMessage]]:
@@ -25,8 +25,8 @@ def prompt_user_node(state: MessageState) -> dict[str, list[HumanMessage]]:
 
 def llm_call_node(state: MessageState) -> dict[str, list[AIMessage]] | None:
     """Prompt the configured LLM with the latest user message."""
-    if model_factory is not None:
-        response: str | None = model_factory.prompt_model(state["messages"][-1].text)
+    if model_client is not None:
+        response: str | None = model_client.prompt(state["messages"][-1].text)
         print(f"AI: {response}")
         return {"messages": [AIMessage(content=response)]}
 

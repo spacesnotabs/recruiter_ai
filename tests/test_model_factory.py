@@ -13,9 +13,7 @@ from agent.llms.local import LocalLLMClient
 
 def test_ollama_factory_configures_local_model_filename() -> None:
     """OLLAMA construction stores the provider-specific model filename."""
-    model_factory = ModelFactory(provider=ModelProvider.OLLAMA, filename="local-model.gguf")
-
-    model = model_factory.get_model()
+    model = ModelFactory.create(provider=ModelProvider.OLLAMA, filename="local-model.gguf")
 
     assert isinstance(model, LocalLLMClient)
     assert model.model_name == ModelProvider.OLLAMA.value
@@ -25,7 +23,7 @@ def test_ollama_factory_configures_local_model_filename() -> None:
 def test_ollama_factory_requires_filename() -> None:
     """OLLAMA construction fails clearly when its filename is missing."""
     with pytest.raises(ValueError, match="filename"):
-        ModelFactory(provider=ModelProvider.OLLAMA)
+        ModelFactory.create(provider=ModelProvider.OLLAMA)
 
 
 def test_openrouter_factory_sets_api_key_without_live_model(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -33,13 +31,14 @@ def test_openrouter_factory_sets_api_key_without_live_model(monkeypatch: pytest.
     monkeypatch.delenv(OPEN_ROUTER_API_KEY_ENV_VAR, raising=False)
     monkeypatch.setattr(LangChainChatClient, "configure", lambda self: None)
 
-    model_factory = ModelFactory(provider=ModelProvider.OPENROUTER, api_key="test-key")
+    model = ModelFactory.create(provider=ModelProvider.OPENROUTER, api_key="test-key")
 
-    assert model_factory.get_model() is None
+    assert isinstance(model, LangChainChatClient)
+    assert model.model is None
     assert os.environ[OPEN_ROUTER_API_KEY_ENV_VAR] == "test-key"
 
 
 def test_openrouter_factory_requires_api_key() -> None:
     """OPENROUTER construction fails clearly when its API key is missing."""
     with pytest.raises(ValueError, match="api_key"):
-        ModelFactory(provider=ModelProvider.OPENROUTER)
+        ModelFactory.create(provider=ModelProvider.OPENROUTER)
