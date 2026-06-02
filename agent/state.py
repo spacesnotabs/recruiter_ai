@@ -4,10 +4,16 @@ from __future__ import annotations
 
 import operator
 from typing import Annotated
+from dataclasses import dataclass
+from agent.llms.base import LLMClient
 
 from langchain.messages import AnyMessage
 from typing_extensions import TypedDict
 
+@dataclass
+class JobSearchContext:
+    """Context object for the job search workflow."""
+    llm_client: LLMClient
 
 class MessageState(TypedDict):
     """Conversation state shared by the proof-of-concept LangGraph workflow."""

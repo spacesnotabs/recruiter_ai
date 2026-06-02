@@ -3,19 +3,10 @@
 from __future__ import annotations
 
 from langchain.messages import AIMessage, HumanMessage
-
+from langgraph.runtime import Runtime
 from agent.llms.base import LLMClient
-from agent.state import MessageState
+from agent.state import MessageState, JobSearchContext
 import json
-
-
-model_client: LLMClient | None = None
-
-
-def set_model_client(client: LLMClient) -> None:
-    """Set the model client used by the proof-of-concept LLM node."""
-    global model_client
-    model_client = client
 
 
 def prompt_user_node(state: MessageState) -> dict[str, list[HumanMessage]]:
@@ -24,7 +15,7 @@ def prompt_user_node(state: MessageState) -> dict[str, list[HumanMessage]]:
     messages = state["messages"]
     if messages:
         last_message = state["messages"][-1]
-        if type(last_message) == AIMessage:
+        if isinstance(last_message, AIMessage):
             message_json = json.loads(last_message.text)
             print(f"AI {message_json.get('response')}")
 
@@ -32,14 +23,11 @@ def prompt_user_node(state: MessageState) -> dict[str, list[HumanMessage]]:
     return {"messages": [HumanMessage(content=prompt)]}
 
 
-def llm_call_node(state: MessageState) -> dict[str, list[AIMessage]] | None:
+def llm_call_node(state: MessageState, runtime: Runtime[JobSearchContext]) -> dict[str, list[AIMessage]]:
     """Prompt the configured LLM with the latest user message."""
-    if model_client is not None:
-        response: str | None = model_client.prompt(state["messages"][-1].text)
-        print(f"AI: {response}")
-        return {"messages": [AIMessage(content=response)]}
-
-    return None
+    response: str | None = runtime.context.llm_client.prompt(state["messages"][-1].text)
+    print(f"AI: {response}")
+    return {"messages": [AIMessage(content=response)]}
 
 def llm_returned_invalid_json(state: MessageState) -> dict[str, list[HumanMessage]]:
     return {"messages": [HumanMessage(content="The JSON you returned was invalid. Please try again.")]}
