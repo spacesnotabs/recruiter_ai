@@ -5,8 +5,7 @@ project needs more structure.
 
 ## Repository Shape
 
-- `main.py`: command-line entrypoint. It parses arguments, calls the API client,
-  and prints or writes the result.
+- `main.py`: thin entrypoint that runs the current recruiter AI workflow.
 - `api/`: Job Data Lake API code and response formatting helpers.
 - `models/`: small shared data models, such as job search parameters.
 - `.env`: optional local secret file. Treat it as private and do not print it.
@@ -21,14 +20,14 @@ project needs more structure.
 Useful commands from the repository root:
 
 ```powershell
-.\.venv\Scripts\python.exe .\main.py --help
-.\.venv\Scripts\python.exe .\main.py --keywords "backend engineer" --format table
+.\.venv\Scripts\python.exe .\main.py
 .\.venv\Scripts\python.exe -m pip install -r .\requirements.txt
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-Set the API key with `--api-key`, the `JOB_API_KEY` environment variable, or
-`JOB_DATA_LAKE_API_KEY` in `.env`.
+Set `OPENROUTER_API_KEY` in `.env` for the current workflow. Set the Job Data
+Lake API key with `JOB_API_KEY` or `JOB_DATA_LAKE_API_KEY` when working on the
+API client.
 
 ## Coding Conventions
 
@@ -53,6 +52,9 @@ Document all code well. In this repo that means:
 - Every public class, dataclass, enum, function, and method has a docstring.
 - Docstrings should explain purpose, inputs, outputs, side effects, and failure
   modes when those are not obvious from the signature.
+- Follow PEP 257 docstring conventions. For non-trivial Python docstrings, use
+  clear `Args:`, `Returns:`, and `Raises:` sections where they help readability;
+  very short docstrings can stay as a single sentence.
 - Keep docstrings factual and maintainable. Do not restate implementation line by
   line, and do not include stale examples.
 - Add short inline comments before non-obvious decisions, protocol quirks,
@@ -70,12 +72,12 @@ Document all code well. In this repo that means:
 
 ## Testing Guidance
 
-- No test structure is currently checked in.
+- Tests live in `tests/`.
 - Add focused tests only when they pull their weight for the current change.
 - Mock external HTTP calls; do not require live Job Data Lake requests in normal
   tests.
-- When changing CLI behavior, test argument parsing, missing configuration, and
-  error output.
+- When changing entrypoint behavior, test missing configuration and error
+  output where practical.
 - If a test framework or config file is introduced, update this guide with the
   exact command.
 
