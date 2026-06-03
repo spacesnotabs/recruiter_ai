@@ -19,6 +19,6 @@ def validate_job_search_query(raw_text: str) -> bool:
         JobSearchQuery.model_validate_json(raw_text)
         return True
     except ValidationError:
-        print(f"The following text was not valid: {raw_text}")
+        logger.error("The following text was not valid: %s", raw_text)
         return False
 
