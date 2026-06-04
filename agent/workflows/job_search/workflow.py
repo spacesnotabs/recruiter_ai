@@ -2,20 +2,27 @@
 
 from __future__ import annotations
 
+import json
+from enum import Enum
+from typing import Literal
+
 from langgraph.graph import END, START, StateGraph
 
 from agent.llms.base import LLMClient
-from agent.workflows.job_search.nodes import llm_call_node, prompt_user_node, run_job_search_query, llm_returned_invalid_json
 from agent.prompts import JOB_SEARCH_PARAMETER_EXTRACTION_PROMPT
-from agent.workflows.job_search.state import JobSearchState, JobSearchContext
+from agent.workflows.job_search.nodes import (
+    llm_call_node,
+    llm_returned_invalid_json,
+    prompt_user_node,
+    run_job_search_query,
+)
+from agent.workflows.job_search.state import JobSearchContext, JobSearchState
 from agent.workflows.job_search.validation import validate_job_search_query
-from typing import Literal
-import json
 
-from enum import Enum
 
-"""Validation results for LLM responses in the job search workflow."""
 class ValidationResult(Enum):
+    """Validation outcomes used to route the job search workflow graph."""
+
     INVALID_JSON = "invalid_json"
     INCOMPLETE_QUERY = "incomplete_query"
     INVALID_QUERY = "invalid_query"
@@ -72,25 +79,24 @@ def validate_llm_response_edge(state: JobSearchState) -> Literal["llm_returned_i
         return "run_job_search_query"
 
 def _validate_json(message: str) -> ValidationResult:
-    """
-    Validate whether the LLM response is valid JSON and matches the expected format for job search queries. 
+    """Validate an LLM response against job search workflow requirements.
+
     Args:
-        message: the string response from the LLM to validate
+        message: Raw LLM response text to parse and validate.
+
     Returns:
-        A ValidationResult indicating the outcome.
+        A ``ValidationResult`` indicating whether the text was malformed,
+        incomplete, structurally invalid, or ready to query.
     """
-    # is the response valid json?
     try:
         last_message_json = json.loads(message)
     except json.JSONDecodeError:
         return ValidationResult.INVALID_JSON
 
-    # did the user supply enough information to create a query?
     complete: bool = last_message_json.get("complete", False)
     if not complete:
         return ValidationResult.INCOMPLETE_QUERY
  
-    # did the LLM respond with a complete valid job search query?
     is_valid: bool = validate_job_search_query(message)
     if not is_valid:
         return ValidationResult.INVALID_QUERY

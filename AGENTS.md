@@ -6,14 +6,20 @@ project needs more structure.
 ## Repository Shape
 
 - `main.py`: thin entrypoint that runs the current recruiter AI workflow.
+- `agent/`: LLM clients, prompts, and workflow packages. The current job search
+  workflow lives in `agent/workflows/job_search/`.
 - `api/`: Job Data Lake API code and response formatting helpers.
 - `models/`: small shared data models, such as job search parameters.
+- `tools/`: small local utilities such as dotenv reading and job description
+  scraping.
+- `tests/`: unit tests for API, model, tool, and workflow behavior.
 - `.env`: optional local secret file. Treat it as private and do not print it.
 
 ## Current Runtime Assumptions
 
 - Use Python 3.12; the local virtual environment is `.venv`.
-- Existing code depends on `httpx` and `beautifulsoup4`.
+- Existing code depends on `httpx`, `beautifulsoup4`, `pydantic`,
+  `langchain`, and `langgraph`.
 - No `pyproject.toml`, lockfile, or test configuration is present yet.
 - Prefer PowerShell-friendly commands when documenting local usage.
 
@@ -32,6 +38,8 @@ API client.
 ## Coding Conventions
 
 - Keep `main.py` thin. API request and response behavior belongs in `api/`.
+- Keep job search workflow orchestration in `agent/workflows/job_search/`;
+  shared LLM abstractions belong in `agent/llms/`.
 - Prefer small typed dataclasses or explicit domain models for structured data.
 - Keep external API constants near the client that owns them unless they become
   shared configuration.

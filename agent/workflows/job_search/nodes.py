@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from langchain.messages import AIMessage, HumanMessage
 from langgraph.runtime import Runtime
-from agent.workflows.job_search.state import JobSearchState, JobSearchContext
+
+from agent.workflows.job_search.state import JobSearchContext, JobSearchState
 import json
 
 
@@ -29,9 +30,12 @@ def llm_call_node(state: JobSearchState, runtime: Runtime[JobSearchContext]) -> 
     return {"messages": [AIMessage(content=response)]}
 
 def llm_returned_invalid_json(state: JobSearchState) -> dict[str, list[HumanMessage]]:
+    """Append a retry instruction when the model response cannot be used."""
     return {"messages": [HumanMessage(content="The JSON you returned was invalid. Please try again.")]}
 
+
 def run_job_search_query(state: JobSearchState) -> dict[str, list[HumanMessage]] | None:
-    #TODO
+    """Placeholder node for executing a validated job search query."""
+    # TODO: Convert the validated JSON into JobSearchParams and call the API.
     print("Running job search query")
     return None
