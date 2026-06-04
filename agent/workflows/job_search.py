@@ -7,7 +7,7 @@ from langgraph.graph import END, START, StateGraph
 from agent.llms.base import LLMClient
 from agent.nodes.job_search import llm_call_node, prompt_user_node, run_job_search_query, llm_returned_invalid_json
 from agent.prompts import JOB_SEARCH_PARAMETER_EXTRACTION_PROMPT
-from agent.state import MessageState, JobSearchContext
+from agent.state import JobSearchState, JobSearchContext
 from agent.validation import validate_job_search_query
 from typing import Literal
 import json
@@ -24,7 +24,7 @@ class ValidationResult(Enum):
 
 def build_job_search_workflow():
     """Build the job search workflow graph."""
-    workflow = StateGraph(MessageState, context_schema=JobSearchContext)
+    workflow = StateGraph(JobSearchState, context_schema=JobSearchContext)
 
     workflow.add_node("prompt_user", prompt_user_node)
     workflow.add_node("llm_call", llm_call_node)
@@ -46,12 +46,12 @@ async def run_job_search_workflow(llm_client: LLMClient) -> int:
     app = build_job_search_workflow()
 
     messages = []
-    state: MessageState = MessageState(messages=messages)
+    state: JobSearchState = JobSearchState(messages=messages)
     app.invoke(input=state, context=JobSearchContext(llm_client=llm_client))
 
     return 1
 
-def validate_llm_response_edge(state: MessageState) -> Literal["llm_returned_invalid_json", "prompt_user", "run_job_search_query"]:
+def validate_llm_response_edge(state: JobSearchState) -> Literal["llm_returned_invalid_json", "prompt_user", "run_job_search_query"]:
     """Validate the LLM response and determine the next node to transition to."""
     messages = state["messages"]
     last_message: str = messages[-1].text

@@ -15,7 +15,7 @@ class JobSearchContext:
     """Context object for the job search workflow."""
     llm_client: LLMClient
 
-class MessageState(TypedDict):
+class JobSearchState(TypedDict):
     """Conversation state shared by the proof-of-concept LangGraph workflow."""
 
     messages: Annotated[list[AnyMessage], operator.add]
