@@ -1,0 +1,3 @@
+[llm.default]
+model_provider="openrouter"
+model_name="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"

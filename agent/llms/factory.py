@@ -10,11 +10,8 @@ from agent.llms.base import LLMClient
 from agent.llms.langchain import LangChainChatClient
 from agent.llms.local import LocalLLMClient
 
-
 logger = logging.getLogger(__name__)
 OPEN_ROUTER_API_KEY_ENV_VAR = "OPENROUTER_API_KEY"
-DEFAULT_OPENROUTER_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
-
 
 class ModelProvider(Enum):
     """Supported language model providers."""
@@ -58,7 +55,7 @@ class ModelFactory:
         if not isinstance(api_key, str) or not api_key:
             raise ValueError("OPENROUTER model provider requires api_key.")
 
-        model_name = kwargs.get("model_name", DEFAULT_OPENROUTER_MODEL)
+        model_name = kwargs.get("model_name")
         if not isinstance(model_name, str) or not model_name:
             raise ValueError("OPENROUTER model provider requires model_name to be a non-empty string.")
 
