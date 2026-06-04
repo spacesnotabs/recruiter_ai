@@ -9,7 +9,7 @@ from typing import Any
 
 from agent.llms.factory import OPEN_ROUTER_API_KEY_ENV_VAR, ModelFactory, ModelProvider
 from agent.workflows.job_search.workflow import run_job_search_workflow
-from api.job_data_lake import ROOT_ENV_PATH
+from api.job_data_lake import JOB_DATA_LAKE_API_KEY_ENV_VAR, JobDataLakeClient, ROOT_ENV_PATH
 from tools.env_file import read_env_file_value
 
 logging.basicConfig(
@@ -31,12 +31,17 @@ async def run() -> int:
     if openrouter_api_key is None:
         return 0
 
+    job_data_lake_api_key = read_env_file_value(ROOT_ENV_PATH, JOB_DATA_LAKE_API_KEY_ENV_VAR)
+    if job_data_lake_api_key is None:
+        return 0
+
     config_data = get_config_data("config/config.toml")
     model_provider = config_data["llm"]["default"]["model_provider"]
     model_name = config_data["llm"]["default"]["model_name"]
 
     model_client = ModelFactory.create(provider=ModelProvider(model_provider), model_name=model_name, api_key=openrouter_api_key)
-    return await run_job_search_workflow(model_client)
+    job_client = JobDataLakeClient(api_key=job_data_lake_api_key)
+    return await run_job_search_workflow(model_client, job_client)
 
 
 def main() -> int:

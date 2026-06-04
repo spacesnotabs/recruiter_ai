@@ -1,5 +1,7 @@
 """Async client for the Job Data Lake jobs API."""
 
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
 

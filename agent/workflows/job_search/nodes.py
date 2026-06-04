@@ -9,6 +9,7 @@ from langgraph.runtime import Runtime
 
 from agent.workflows.job_search.state import JobSearchContext, JobSearchState
 from agent.workflows.job_search.validation import JobSearchQuery, ValidationResult, validate_job_search_query
+from models.job_search_params import JobSearchParams
 
 
 def prompt_user_node(state: JobSearchState) -> dict[str, list[HumanMessage]]:
@@ -36,6 +37,7 @@ def llm_returned_invalid_json_node(state: JobSearchState) -> dict[str, list[Huma
     """Append a retry instruction when the model response cannot be used."""
     return {"messages": [HumanMessage(content="The JSON you returned was invalid. Please try again.")]}
 
+
 def validate_llm_response_node(state: JobSearchState) -> dict[str, JobSearchQuery | ValidationResult | None]:
     """Validate the latest LLM response and return durable state updates."""
     messages = state["messages"]
@@ -44,11 +46,43 @@ def validate_llm_response_node(state: JobSearchState) -> dict[str, JobSearchQuer
     validation_result, job_search_query = _validate_llm_json(last_message)
     return {"validation_result": validation_result, "job_search_query": job_search_query}
 
-def run_job_search_query_node(state: JobSearchState) -> dict[str, list[HumanMessage]] | None:
-    """Placeholder node for executing a validated job search query."""
-    # TODO: Convert the validated JSON into JobSearchParams and call the API.
-    print("Running job search query")
+
+async def run_job_search_query_node(
+    state: JobSearchState,
+    runtime: Runtime[JobSearchContext],
+) -> dict[str, object] | None:
+    """Execute a validated job search query against the configured jobs API."""
+    job_search_query = state["job_search_query"]
+    if job_search_query is None:
+        raise ValueError("Job search query is required before running the jobs API search.")
+
+    job_results = await runtime.context.job_client.search_jobs(_job_search_query_to_params(job_search_query))
+    if job_results is None:
+        return None
+
+    return {"job_search_results": job_results}
+
+
+def handle_job_search_results_node(state: JobSearchState) -> dict[str, list[HumanMessage]] | None:
+    """Format and return job search results to the user."""
+    job_search_results = state["job_search_results"]
+    if job_search_results is None:
+        raise ValueError("Job search results are required to format a response to the user.")
+
+    formatted_results = json.dumps(job_search_results, indent=2)
+    print(f"AI: Here are the job search results:\n{formatted_results}")
     return None
+
+def _job_search_query_to_params(job_search_query: JobSearchQuery) -> JobSearchParams:
+    """Convert the LLM-facing query schema into API-facing search parameters."""
+    return JobSearchParams(
+        keywords=job_search_query.keywords,
+        job_function=job_search_query.job_function,
+        location=job_search_query.location,
+        salary_min=job_search_query.salary_min,
+        remote_type=job_search_query.remote_type,
+    )
+
 
 def _validate_llm_json(message: str) -> tuple[ValidationResult, JobSearchQuery | None]:
     """Validate an LLM response against job search workflow requirements.

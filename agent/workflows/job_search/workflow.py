@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Literal
 
 from langgraph.graph import END, START, StateGraph
@@ -15,9 +14,11 @@ from agent.workflows.job_search.nodes import (
     prompt_user_node,
     validate_llm_response_node,
     run_job_search_query_node,
+    handle_job_search_results_node,
 )
 from agent.workflows.job_search.state import JobSearchContext, JobSearchState
 from agent.workflows.job_search.validation import ValidationResult
+from api.job_data_lake import JobDataLakeClient
 
 
 def build_job_search_workflow():
@@ -29,25 +30,34 @@ def build_job_search_workflow():
     workflow.add_node("validate_llm_response", validate_llm_response_node)
     workflow.add_node("llm_returned_invalid_json", llm_returned_invalid_json_node)
     workflow.add_node("run_job_search_query", run_job_search_query_node)
+    workflow.add_node("handle_job_search_results", handle_job_search_results_node)
 
     workflow.add_edge(START, "prompt_user")
     workflow.add_edge("prompt_user", "llm_call")
     workflow.add_edge("llm_call", "validate_llm_response")
     workflow.add_conditional_edges("validate_llm_response", validate_llm_response_edge)
     workflow.add_edge("llm_returned_invalid_json", "llm_call")
-    workflow.add_edge("run_job_search_query", END)
+    workflow.add_edge("run_job_search_query", "handle_job_search_results")
+    workflow.add_edge("handle_job_search_results", END)
 
     return workflow.compile()
 
 
-async def run_job_search_workflow(llm_client: LLMClient) -> int:
+async def run_job_search_workflow(llm_client: LLMClient, job_client: JobDataLakeClient) -> int:
     """Run one job search workflow interaction."""
     llm_client.set_system_prompt(prompt=JOB_SEARCH_PARAMETER_EXTRACTION_PROMPT)
     app = build_job_search_workflow()
 
     messages = []
-    state: JobSearchState = JobSearchState(messages=messages, job_search_query=None, validation_result=None)
-    app.invoke(input=state, context=JobSearchContext(llm_client=llm_client))
+    state: JobSearchState = JobSearchState(
+        messages=messages, 
+        job_search_query=None, 
+        validation_result=None, 
+        job_search_results=None,
+        job_search_succeeded=False,
+        )
+
+    await app.ainvoke(input=state, context=JobSearchContext(llm_client=llm_client, job_client=job_client))
 
     return 1
 
@@ -68,5 +78,4 @@ def validate_llm_response_edge(state: JobSearchState) -> Literal["llm_returned_i
     else:
         print("LLM returned a complete and valid job search query. Running the query.")
         return "run_job_search_query"
-
 
