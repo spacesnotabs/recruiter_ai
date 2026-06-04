@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from agent.factory import ModelFactory, ModelProvider, OPEN_ROUTER_API_KEY_ENV_VAR
+from agent.llms.factory import ModelFactory, ModelProvider, OPEN_ROUTER_API_KEY_ENV_VAR
 from agent.llms.langchain import LangChainChatClient
 from agent.llms.local import LocalLLMClient
 

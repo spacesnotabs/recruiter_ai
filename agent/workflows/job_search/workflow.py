@@ -5,10 +5,10 @@ from __future__ import annotations
 from langgraph.graph import END, START, StateGraph
 
 from agent.llms.base import LLMClient
-from agent.nodes.job_search import llm_call_node, prompt_user_node, run_job_search_query, llm_returned_invalid_json
+from agent.workflows.job_search.nodes import llm_call_node, prompt_user_node, run_job_search_query, llm_returned_invalid_json
 from agent.prompts import JOB_SEARCH_PARAMETER_EXTRACTION_PROMPT
-from agent.state import JobSearchState, JobSearchContext
-from agent.validation import validate_job_search_query
+from agent.workflows.job_search.state import JobSearchState, JobSearchContext
+from agent.workflows.job_search.validation import validate_job_search_query
 from typing import Literal
 import json
 

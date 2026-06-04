@@ -6,9 +6,9 @@ from enum import Enum
 import logging
 import os
 
-from .llms.base import LLMClient
-from .llms.langchain import LangChainChatClient
-from .llms.local import LocalLLMClient
+from agent.llms.base import LLMClient
+from agent.llms.langchain import LangChainChatClient
+from agent.llms.local import LocalLLMClient
 
 
 logger = logging.getLogger(__name__)

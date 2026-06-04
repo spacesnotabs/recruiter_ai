@@ -5,8 +5,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from agent.factory import OPEN_ROUTER_API_KEY_ENV_VAR, ModelFactory, ModelProvider
-from agent.workflows.job_search import run_job_search_workflow
+from agent.llms.factory import OPEN_ROUTER_API_KEY_ENV_VAR, ModelFactory, ModelProvider
+from agent.workflows.job_search.workflow import run_job_search_workflow
 from api.job_data_lake import ROOT_ENV_PATH
 from tools.env_file import read_env_file_value
 

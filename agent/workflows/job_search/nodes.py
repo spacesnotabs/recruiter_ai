@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from langchain.messages import AIMessage, HumanMessage
 from langgraph.runtime import Runtime
-from agent.llms.base import LLMClient
-from agent.state import JobSearchState, JobSearchContext
+from agent.workflows.job_search.state import JobSearchState, JobSearchContext
 import json
 
 

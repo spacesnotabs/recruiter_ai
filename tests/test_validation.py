@@ -7,7 +7,7 @@ import logging
 
 import pytest
 
-from agent.validation import validate_job_search_query
+from agent.workflows.job_search.validation import validate_job_search_query
 
 
 def test_validate_job_search_query_accepts_complete_job_search_json() -> None:
