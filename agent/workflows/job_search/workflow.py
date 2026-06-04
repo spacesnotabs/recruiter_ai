@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from enum import Enum
 from typing import Literal
 
 from langgraph.graph import END, START, StateGraph
@@ -12,21 +11,13 @@ from agent.llms.base import LLMClient
 from agent.prompts import JOB_SEARCH_PARAMETER_EXTRACTION_PROMPT
 from agent.workflows.job_search.nodes import (
     llm_call_node,
-    llm_returned_invalid_json,
+    llm_returned_invalid_json_node,
     prompt_user_node,
-    run_job_search_query,
+    validate_llm_response_node,
+    run_job_search_query_node,
 )
 from agent.workflows.job_search.state import JobSearchContext, JobSearchState
-from agent.workflows.job_search.validation import validate_job_search_query, JobSearchQuery
-
-
-class ValidationResult(Enum):
-    """Validation outcomes used to route the job search workflow graph."""
-
-    INVALID_JSON = "invalid_json"
-    INCOMPLETE_QUERY = "incomplete_query"
-    INVALID_QUERY = "invalid_query"
-    VALID_QUERY = "valid_query"
+from agent.workflows.job_search.validation import ValidationResult
 
 
 def build_job_search_workflow():
@@ -35,12 +26,14 @@ def build_job_search_workflow():
 
     workflow.add_node("prompt_user", prompt_user_node)
     workflow.add_node("llm_call", llm_call_node)
-    workflow.add_node("llm_returned_invalid_json", llm_returned_invalid_json)
-    workflow.add_node("run_job_search_query", run_job_search_query)
+    workflow.add_node("validate_llm_response", validate_llm_response_node)
+    workflow.add_node("llm_returned_invalid_json", llm_returned_invalid_json_node)
+    workflow.add_node("run_job_search_query", run_job_search_query_node)
 
     workflow.add_edge(START, "prompt_user")
     workflow.add_edge("prompt_user", "llm_call")
-    workflow.add_conditional_edges("llm_call", validate_llm_response_edge)
+    workflow.add_edge("llm_call", "validate_llm_response")
+    workflow.add_conditional_edges("validate_llm_response", validate_llm_response_edge)
     workflow.add_edge("llm_returned_invalid_json", "llm_call")
     workflow.add_edge("run_job_search_query", END)
 
@@ -53,17 +46,15 @@ async def run_job_search_workflow(llm_client: LLMClient) -> int:
     app = build_job_search_workflow()
 
     messages = []
-    state: JobSearchState = JobSearchState(messages=messages, job_search_query=None)
+    state: JobSearchState = JobSearchState(messages=messages, job_search_query=None, validation_result=None)
     app.invoke(input=state, context=JobSearchContext(llm_client=llm_client))
 
     return 1
 
-def validate_llm_response_edge(state: JobSearchState) -> Literal["llm_returned_invalid_json", "prompt_user", "run_job_search_query"]:
-    """Validate the LLM response and determine the next node to transition to."""
-    messages = state["messages"]
-    last_message: str = messages[-1].text
 
-    json_validation_result: ValidationResult = _validate_json(message=last_message, state=state)
+def validate_llm_response_edge(state: JobSearchState) -> Literal["llm_returned_invalid_json", "prompt_user", "run_job_search_query"]:
+    """Route the workflow based on the stored validation result."""
+    json_validation_result = state["validation_result"]
 
     if json_validation_result == ValidationResult.INVALID_JSON:
         print("LLM returned invalid JSON.")
@@ -78,29 +69,4 @@ def validate_llm_response_edge(state: JobSearchState) -> Literal["llm_returned_i
         print("LLM returned a complete and valid job search query. Running the query.")
         return "run_job_search_query"
 
-def _validate_json(message: str, state: JobSearchState) -> ValidationResult:
-    """Validate an LLM response against job search workflow requirements.
 
-    Args:
-        message: Raw LLM response text to parse and validate.
-
-    Returns:
-        A ``ValidationResult`` indicating whether the text was malformed,
-        incomplete, structurally invalid, or ready to query.
-    """
-    try:
-        last_message_json = json.loads(message)
-    except json.JSONDecodeError:
-        return ValidationResult.INVALID_JSON
-
-    complete: bool = last_message_json.get("complete", False)
-    if not complete:
-        return ValidationResult.INCOMPLETE_QUERY
- 
-    job_search_query: JobSearchQuery | None = validate_job_search_query(message)
-    if not job_search_query:
-        return ValidationResult.INVALID_QUERY
-
-    state["job_search_query"] = job_search_query
-    return ValidationResult.VALID_QUERY
- 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import tomllib
+from typing import Any
 
 from agent.llms.factory import OPEN_ROUTER_API_KEY_ENV_VAR, ModelFactory, ModelProvider
 from agent.workflows.job_search.workflow import run_job_search_workflow
@@ -17,12 +18,12 @@ logging.basicConfig(
     filename="app.log",
 )
 
-def get_config_data(config_path: str):
+
+def get_config_data(config_path: str) -> dict[str, Any]:
     """Load configuration data from a TOML file."""
     with open(config_path, "rb") as config_file:
-        data = tomllib.load(config_file)
-        print(data)
-        return data
+        return tomllib.load(config_file)
+
 
 async def run() -> int:
     """Run the proof-of-concept LangGraph job search workflow."""

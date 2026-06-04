@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, ValidationError
@@ -10,6 +11,15 @@ from pydantic import BaseModel, ValidationError
 from models.job_search_params import JobFunction, RemoteType
 
 logger = logging.getLogger(__name__)
+
+
+class ValidationResult(Enum):
+    """Validation outcomes used to route the job search workflow graph."""
+
+    INVALID_JSON = "invalid_json"
+    INCOMPLETE_QUERY = "incomplete_query"
+    INVALID_QUERY = "invalid_query"
+    VALID_QUERY = "valid_query"
 
 
 class JobSearchQuery(BaseModel):
@@ -25,7 +35,7 @@ class JobSearchQuery(BaseModel):
 
 
 def validate_job_search_query(raw_text: str) -> JobSearchQuery | None:
-    """Return whether raw LLM text is valid complete job search query JSON.
+    """Parse raw LLM text as complete job search query JSON.
 
     Args:
         raw_text: JSON text emitted by the LLM.
@@ -40,4 +50,3 @@ def validate_job_search_query(raw_text: str) -> JobSearchQuery | None:
     except ValidationError:
         logger.error("The following text was not valid: %s", raw_text)
         return None
-

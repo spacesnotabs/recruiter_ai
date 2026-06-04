@@ -27,8 +27,8 @@ class ModelFactory:
     def create(provider: ModelProvider, **kwargs: object) -> LLMClient:
         """Create and configure a language model client for the selected provider.
 
-        ``provider`` selects the model backend. OPENROUTER requires an
-        ``api_key`` argument and accepts an optional ``model_name``. OLLAMA
+        ``provider`` selects the model backend. OPENROUTER requires
+        ``api_key`` and ``model_name`` arguments. OLLAMA
         requires a ``filename`` argument and accepts an optional ``model_name``.
         Missing required provider arguments raise ``ValueError``.
         """

@@ -7,7 +7,7 @@ import logging
 
 import pytest
 
-from agent.workflows.job_search.validation import validate_job_search_query
+from agent.workflows.job_search.validation import JobSearchQuery, validate_job_search_query
 
 
 def test_validate_job_search_query_accepts_complete_job_search_json() -> None:
@@ -24,7 +24,11 @@ def test_validate_job_search_query_accepts_complete_job_search_json() -> None:
         }
     )
 
-    assert validate_job_search_query(raw_text) is True
+    job_search_query = validate_job_search_query(raw_text)
+
+    assert isinstance(job_search_query, JobSearchQuery)
+    assert job_search_query.keywords == "backend engineer"
+    assert job_search_query.salary_min == 120000
 
 
 def test_validate_job_search_query_rejects_invalid_job_function(caplog: pytest.LogCaptureFixture) -> None:
@@ -42,6 +46,6 @@ def test_validate_job_search_query_rejects_invalid_job_function(caplog: pytest.L
     )
 
     with caplog.at_level(logging.ERROR):
-        assert validate_job_search_query(raw_text) is False
+        assert validate_job_search_query(raw_text) is None
 
     assert "The following text was not valid" in caplog.text
