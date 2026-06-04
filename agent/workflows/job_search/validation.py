@@ -24,20 +24,20 @@ class JobSearchQuery(BaseModel):
     location: Optional[str] = None
 
 
-def validate_job_search_query(raw_text: str) -> bool:
+def validate_job_search_query(raw_text: str) -> JobSearchQuery | None:
     """Return whether raw LLM text is valid complete job search query JSON.
 
     Args:
         raw_text: JSON text emitted by the LLM.
 
     Returns:
-        ``True`` when the JSON matches ``JobSearchQuery``; otherwise ``False``.
+        The JobSearchQuery when the JSON matches ``JobSearchQuery``; otherwise None.
         Validation failures are logged for operator debugging.
     """
     try:
-        JobSearchQuery.model_validate_json(raw_text)
-        return True
+        job_search_query = JobSearchQuery.model_validate_json(raw_text)
+        return job_search_query
     except ValidationError:
         logger.error("The following text was not valid: %s", raw_text)
-        return False
+        return None
 

@@ -17,7 +17,7 @@ from agent.workflows.job_search.nodes import (
     run_job_search_query,
 )
 from agent.workflows.job_search.state import JobSearchContext, JobSearchState
-from agent.workflows.job_search.validation import validate_job_search_query
+from agent.workflows.job_search.validation import validate_job_search_query, JobSearchQuery
 
 
 class ValidationResult(Enum):
@@ -53,7 +53,7 @@ async def run_job_search_workflow(llm_client: LLMClient) -> int:
     app = build_job_search_workflow()
 
     messages = []
-    state: JobSearchState = JobSearchState(messages=messages)
+    state: JobSearchState = JobSearchState(messages=messages, job_search_query=None)
     app.invoke(input=state, context=JobSearchContext(llm_client=llm_client))
 
     return 1
@@ -63,7 +63,7 @@ def validate_llm_response_edge(state: JobSearchState) -> Literal["llm_returned_i
     messages = state["messages"]
     last_message: str = messages[-1].text
 
-    json_validation_result: ValidationResult = _validate_json(last_message)
+    json_validation_result: ValidationResult = _validate_json(message=last_message, state=state)
 
     if json_validation_result == ValidationResult.INVALID_JSON:
         print("LLM returned invalid JSON.")
@@ -78,7 +78,7 @@ def validate_llm_response_edge(state: JobSearchState) -> Literal["llm_returned_i
         print("LLM returned a complete and valid job search query. Running the query.")
         return "run_job_search_query"
 
-def _validate_json(message: str) -> ValidationResult:
+def _validate_json(message: str, state: JobSearchState) -> ValidationResult:
     """Validate an LLM response against job search workflow requirements.
 
     Args:
@@ -97,9 +97,10 @@ def _validate_json(message: str) -> ValidationResult:
     if not complete:
         return ValidationResult.INCOMPLETE_QUERY
  
-    is_valid: bool = validate_job_search_query(message)
-    if not is_valid:
+    job_search_query: JobSearchQuery | None = validate_job_search_query(message)
+    if not job_search_query:
         return ValidationResult.INVALID_QUERY
 
+    state["job_search_query"] = job_search_query
     return ValidationResult.VALID_QUERY
  

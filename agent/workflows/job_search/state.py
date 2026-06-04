@@ -6,6 +6,7 @@ import operator
 from typing import Annotated
 from dataclasses import dataclass
 from agent.llms.base import LLMClient
+from agent.workflows.job_search.validation import JobSearchQuery
 
 from langchain.messages import AnyMessage
 from typing_extensions import TypedDict
@@ -17,5 +18,5 @@ class JobSearchContext:
 
 class JobSearchState(TypedDict):
     """Conversation state shared by the proof-of-concept LangGraph workflow."""
-
     messages: Annotated[list[AnyMessage], operator.add]
+    job_search_query: JobSearchQuery | None
