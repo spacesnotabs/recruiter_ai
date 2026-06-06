@@ -17,6 +17,7 @@ from agent.workflows.job_search.validation import ValidationResult
 from agent.workflows.job_search.workflow import (
     validate_llm_response_edge,
 )
+from models.job import JobDataLakeJob, JobDataLakeResponse
 from models.job_search_params import JobFunction, JobSearchParams, RemoteType
 
 
@@ -84,10 +85,15 @@ def test_run_job_search_query_node_converts_query_to_api_params() -> None:
     calls: list[JobSearchParams] = []
 
     class FakeJobClient:
-        async def search_jobs(self, params: JobSearchParams | None = None) -> dict[str, object]:
+        async def search_jobs(self, params: JobSearchParams | None = None) -> JobDataLakeResponse:
             if params is not None:
                 calls.append(params)
-            return {"found": 1, "jobs": [{"title": "Backend Engineer"}]}
+            return JobDataLakeResponse(
+                found=1,
+                page=1,
+                per_page=10,
+                jobs=[JobDataLakeJob(title="Backend Engineer", url="https://example.test/jobs/1")],
+            )
 
     class FakeRuntime:
         context = SimpleNamespace(job_client=FakeJobClient())
@@ -112,7 +118,14 @@ def test_run_job_search_query_node_converts_query_to_api_params() -> None:
         )
     )
 
-    assert result == {"job_search_results": {"found": 1, "jobs": [{"title": "Backend Engineer"}]}}
+    assert result == {
+        "job_search_results": JobDataLakeResponse(
+            found=1,
+            page=1,
+            per_page=10,
+            jobs=[JobDataLakeJob(title="Backend Engineer", url="https://example.test/jobs/1")],
+        )
+    }
     assert calls == [
         JobSearchParams(
             keywords="backend engineer",

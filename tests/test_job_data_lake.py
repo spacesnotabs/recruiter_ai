@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 import pytest
 
 from api import job_data_lake
 from api.job_data_lake import JobDataLakeClient
+from models.job import JobDataLakeResponse
 from models.job_search_params import JobFunction, JobSearchParams, RemoteType
 
 
@@ -98,7 +101,20 @@ def test_search_jobs_passes_default_endpoint_and_query_params(monkeypatch: pytes
         query_params: dict[str, str | int] | None = None,
     ) -> dict[str, Any]:
         calls.append((endpoint_path, query_params))
-        return {"found": 1}
+        return {
+            "found": 1,
+            "page": 1,
+            "per_page": 10,
+            "jobs": [
+                {
+                    "title": "Backend Engineer",
+                    "url": "https://example.test/jobs/1",
+                    "posted_at": 1_700_000_000,
+                    "salary_min_usd": 180,
+                }
+            ],
+            "stats": {"total_jobs": 100, "new_last_24h": 5},
+        }
 
     monkeypatch.setattr(JobDataLakeClient, "get", fake_get)
     params = JobSearchParams(
@@ -111,7 +127,10 @@ def test_search_jobs_passes_default_endpoint_and_query_params(monkeypatch: pytes
 
     result = asyncio.run(JobDataLakeClient("key").search_jobs(params))
 
-    assert result == {"found": 1}
+    assert isinstance(result, JobDataLakeResponse)
+    assert result.found == 1
+    assert result.jobs[0].posted_at == datetime.fromtimestamp(1_700_000_000, tz=UTC)
+    assert result.jobs[0].salary_min_usd == Decimal("180")
     assert calls == [
         (
             "/v1/jobs",
@@ -138,12 +157,11 @@ def test_search_jobs_passes_no_query_params_when_filters_are_absent(
         query_params: dict[str, str | int] | None = None,
     ) -> dict[str, Any]:
         calls.append((endpoint_path, query_params))
-        return {"found": 0}
+        return {"found": 0, "page": 1, "per_page": 10, "jobs": []}
 
     monkeypatch.setattr(JobDataLakeClient, "get", fake_get)
 
     result = asyncio.run(JobDataLakeClient("key").search_jobs())
 
-    assert result == {"found": 0}
+    assert result == JobDataLakeResponse(found=0, page=1, per_page=10, jobs=[])
     assert calls == [("/v1/jobs", None)]
-

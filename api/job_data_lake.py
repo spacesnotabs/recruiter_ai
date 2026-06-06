@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 
+from models.job import JobDataLakeResponse
 from models.job_search_params import JobSearchParams
 
 
@@ -53,9 +54,10 @@ class JobDataLakeClient:
             response.raise_for_status()
             return response.json()
 
-    async def search_jobs(self, params: JobSearchParams | None = None) -> dict[str, Any]:
-        """Search the default jobs endpoint with optional job search filters."""
-        return await self.get(
+    async def search_jobs(self, params: JobSearchParams | None = None) -> JobDataLakeResponse:
+        """Search the jobs endpoint and validate its documented response."""
+        response_data = await self.get(
             JOB_DATA_LAKE_JOBS_ENDPOINT,
             params.to_query_params() if params else None,
         )
+        return JobDataLakeResponse.model_validate(response_data)

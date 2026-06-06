@@ -9,10 +9,10 @@ from typing import Annotated
 from agent.llms.base import LLMClient
 from agent.workflows.job_search.validation import JobSearchQuery, ValidationResult
 from api.job_data_lake import JobDataLakeClient
+from models.job import JobDataLakeResponse
 
 from langchain.messages import AnyMessage
 from typing_extensions import TypedDict
-from typing import Any
 
 
 @dataclass
@@ -27,5 +27,5 @@ class JobSearchState(TypedDict):
     messages: Annotated[list[AnyMessage], operator.add]
     job_search_query: JobSearchQuery | None
     validation_result: ValidationResult | None
-    job_search_results: dict[str, Any] | None
+    job_search_results: JobDataLakeResponse | None
     job_search_succeeded: bool 

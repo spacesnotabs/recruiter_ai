@@ -69,7 +69,7 @@ def handle_job_search_results_node(state: JobSearchState) -> dict[str, list[Huma
     if job_search_results is None:
         raise ValueError("Job search results are required to format a response to the user.")
 
-    formatted_results = json.dumps(job_search_results, indent=2)
+    formatted_results = job_search_results.model_dump_json(indent=2)
     print(f"AI: Here are the job search results:\n{formatted_results}")
     return None
 
