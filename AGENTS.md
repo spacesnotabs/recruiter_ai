@@ -9,10 +9,13 @@ project needs more structure.
 - `agent/`: LLM clients, prompts, and workflow packages. The current job search
   workflow lives in `agent/workflows/job_search/`.
 - `api/`: Job Data Lake API code and response formatting helpers.
-- `models/`: small shared data models, such as job search parameters.
+- `models/`: shared typed models. `models/job.py` validates Job Data Lake
+  responses, while `models/job_search_params.py` represents outgoing filters.
 - `tools/`: small local utilities such as dotenv reading and job description
   scraping.
 - `tests/`: unit tests for API, model, tool, and workflow behavior.
+- `data/`: generated local job records. The workflow creates this directory as
+  needed; its contents are ignored by Git and must not be treated as source.
 - `.env`: optional local secret file. Treat it as private and do not print it.
 
 ## Current Runtime Assumptions
@@ -31,9 +34,23 @@ Useful commands from the repository root:
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-Set `OPENROUTER_API_KEY` in `.env` for the current workflow. Set the Job Data
-Lake API key with `JOB_API_KEY` or `JOB_DATA_LAKE_API_KEY` when working on the
-API client.
+Set `OPENROUTER_API_KEY` and `JOB_DATA_LAKE_API_KEY` in `.env` for the current
+workflow. The entrypoint reads these values from the repository-root `.env`
+file and exits without running when either value is missing.
+
+## Current Job Data Flow
+
+1. The workflow validates LLM-produced search criteria.
+2. `JobDataLakeClient.search_jobs()` fetches the `/v1/jobs` response and
+   validates it as `JobDataLakeResponse`.
+3. The result-handling node fetches job descriptions concurrently, with at
+   most five in flight.
+4. Each job is saved to `data/job_<identifier>.json` with the complete
+   Job Data Lake record and scrape status, details, or error.
+
+`job_handle` is used for the local identifier when present. Jobs without a
+handle use a deterministic hash of the URL. Local JSON files are temporary
+persistence for development, not the future database schema.
 
 ## Coding Conventions
 
@@ -45,6 +62,15 @@ API client.
   shared configuration.
 - Use async APIs consistently when extending `JobDataLakeClient`; do not mix
   blocking HTTP calls into async flows.
+- Keep upstream response models separate from display formatting and future
+  database models. API models describe provider data; persistence models should
+  describe application-owned records.
+- Bound concurrent external requests. A single inaccessible job page should be
+  recorded as a scrape failure without discarding other jobs.
+- Keep workflow nodes focused on orchestration. When database storage is added,
+  move file/database writes and duplicate handling behind a storage or
+  repository abstraction rather than adding more persistence behavior to the
+  node.
 - Preserve the current style: type hints, `from __future__ import annotations`,
   narrow helper functions, and clear error handling at boundaries.
 - Avoid adding dependencies for trivial parsing or formatting. Add a dependency
@@ -84,6 +110,10 @@ Document all code well. In this repo that means:
 - Add focused tests only when they pull their weight for the current change.
 - Mock external HTTP calls; do not require live Job Data Lake requests in normal
   tests.
+- For concurrent behavior, test the association between input jobs and output
+  records even when requests complete in a different order.
+- Redirect generated job output to pytest temporary directories; tests must not
+  write into the repository `data/` directory.
 - When changing entrypoint behavior, test missing configuration and error
   output where practical.
 - If a test framework or config file is introduced, update this guide with the

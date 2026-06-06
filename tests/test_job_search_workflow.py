@@ -7,9 +7,12 @@ import json
 from types import SimpleNamespace
 
 from langchain.messages import AIMessage
+import pytest
 
 from agent.workflows.job_search.nodes import (
+    _job_file_identifier,
     _validate_llm_json,
+    handle_job_search_results_node,
     run_job_search_query_node,
     validate_llm_response_node,
 )
@@ -19,6 +22,7 @@ from agent.workflows.job_search.workflow import (
 )
 from models.job import JobDataLakeJob, JobDataLakeResponse
 from models.job_search_params import JobFunction, JobSearchParams, RemoteType
+from tools.job_description_scraper import JobPostingDetails, JobPostingExtractionError
 
 
 def test_validate_json_rejects_malformed_llm_response() -> None:
@@ -135,3 +139,134 @@ def test_run_job_search_query_node_converts_query_to_api_params() -> None:
             remote_type=RemoteType.FULLY_REMOTE,
         )
     ]
+
+
+def test_handle_job_search_results_saves_successes_and_scrape_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """Each API job is saved even when one description cannot be scraped."""
+    jobs = [
+        JobDataLakeJob(
+            title="Backend Engineer",
+            company_name="Example",
+            url="https://example.test/jobs/1",
+            job_handle="example/backend:1",
+        ),
+        JobDataLakeJob(
+            title="Platform Engineer",
+            company_name="Example",
+            url="https://example.test/jobs/2",
+        ),
+    ]
+
+    async def fake_fetch_job_posting(url: str) -> JobPostingDetails:
+        if url.endswith("/2"):
+            raise JobPostingExtractionError("blocked")
+        return JobPostingDetails(url=url, description="Build backend services.")
+
+    monkeypatch.setattr("agent.workflows.job_search.nodes.fetch_job_posting", fake_fetch_job_posting)
+    monkeypatch.setattr("agent.workflows.job_search.nodes.JOB_DATA_DIRECTORY", tmp_path)
+    state = {
+        "messages": [],
+        "job_search_query": None,
+        "validation_result": ValidationResult.VALID_QUERY,
+        "job_search_results": JobDataLakeResponse(
+            found=2,
+            page=1,
+            per_page=10,
+            jobs=jobs,
+        ),
+        "job_search_succeeded": True,
+    }
+
+    asyncio.run(handle_job_search_results_node(state))
+
+    successful_record = json.loads((tmp_path / "job_example_backend_1.json").read_text(encoding="utf-8"))
+    failed_filename = f"job_{_job_file_identifier(jobs[1])}.json"
+    failed_record = json.loads((tmp_path / failed_filename).read_text(encoding="utf-8"))
+    assert successful_record["job"]["title"] == "Backend Engineer"
+    assert successful_record["scrape"]["status"] == "succeeded"
+    assert successful_record["scrape"]["details"]["description"] == "Build backend services."
+    assert failed_record["job"]["title"] == "Platform Engineer"
+    assert failed_record["scrape"] == {
+        "status": "failed",
+        "error": "blocked",
+        "details": None,
+    }
+
+
+def test_handle_job_search_results_keeps_records_matched_when_fetches_finish_out_of_order(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """Concurrent fetch completion order does not mix descriptions between jobs."""
+    jobs = [
+        JobDataLakeJob(
+            title="First Job",
+            url="https://example.test/jobs/slow",
+            job_handle="first-job",
+        ),
+        JobDataLakeJob(
+            title="Second Job",
+            url="https://example.test/jobs/fast",
+            job_handle="second-job",
+        ),
+    ]
+    completion_order: list[str] = []
+
+    async def fake_fetch_job_posting(url: str) -> JobPostingDetails:
+        if url.endswith("/slow"):
+            await asyncio.sleep(0.01)
+        completion_order.append(url)
+        return JobPostingDetails(url=url, description=f"Description for {url}")
+
+    monkeypatch.setattr("agent.workflows.job_search.nodes.fetch_job_posting", fake_fetch_job_posting)
+    monkeypatch.setattr("agent.workflows.job_search.nodes.JOB_DATA_DIRECTORY", tmp_path)
+    state = {
+        "messages": [],
+        "job_search_query": None,
+        "validation_result": ValidationResult.VALID_QUERY,
+        "job_search_results": JobDataLakeResponse(
+            found=2,
+            page=1,
+            per_page=10,
+            jobs=jobs,
+        ),
+        "job_search_succeeded": True,
+    }
+
+    asyncio.run(handle_job_search_results_node(state))
+
+    first_record = json.loads((tmp_path / "job_first-job.json").read_text(encoding="utf-8"))
+    second_record = json.loads((tmp_path / "job_second-job.json").read_text(encoding="utf-8"))
+    assert completion_order == [
+        "https://example.test/jobs/fast",
+        "https://example.test/jobs/slow",
+    ]
+    assert first_record["scrape"]["details"]["url"] == jobs[0].url
+    assert first_record["scrape"]["details"]["description"] == f"Description for {jobs[0].url}"
+    assert second_record["scrape"]["details"]["url"] == jobs[1].url
+    assert second_record["scrape"]["details"]["description"] == f"Description for {jobs[1].url}"
+
+
+def test_handle_job_search_results_requires_results() -> None:
+    """The persistence node rejects workflow state without search results."""
+    state = {
+        "messages": [],
+        "job_search_query": None,
+        "validation_result": ValidationResult.VALID_QUERY,
+        "job_search_results": None,
+        "job_search_succeeded": False,
+    }
+
+    with pytest.raises(ValueError, match="Job search results are required"):
+        asyncio.run(handle_job_search_results_node(state))
+
+
+def test_job_file_identifier_uses_stable_url_hash_when_handle_is_missing() -> None:
+    """Jobs without provider handles receive deterministic safe identifiers."""
+    job = JobDataLakeJob(title="Backend Engineer", url="https://example.test/jobs/1")
+
+    assert _job_file_identifier(job) == _job_file_identifier(job)
+    assert len(_job_file_identifier(job)) == 24
