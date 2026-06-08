@@ -27,7 +27,13 @@ class JobSearchQuery(BaseModel):
 
     response: str
     complete: bool
-    keywords: str
+    keywords: str = Field(
+        description=(
+            "Search terms for job titles, company names, and skills only. "
+            "Do not include location, salary, seniority, remote type, job function, "
+            "or posting date filters."
+        )
+    )
     job_function: Optional[JobFunction] = None
     salary_min: Optional[int] = None
     remote_type: Optional[RemoteType] = None

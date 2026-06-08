@@ -14,3 +14,10 @@ def test_job_search_prompt_contains_current_pydantic_schema() -> None:
         assert f'"{property_name}"' in JOB_SEARCH_PARAMETER_EXTRACTION_PROMPT
 
     assert "job_function" not in schema["required"]
+
+
+def test_job_search_prompt_keeps_filter_values_out_of_keywords() -> None:
+    """Keyword instructions reserve the API text search for its indexed fields."""
+    assert "job titles, company names, and skills" in JOB_SEARCH_PARAMETER_EXTRACTION_PROMPT
+    assert "Do not include salary, location" in JOB_SEARCH_PARAMETER_EXTRACTION_PROMPT
+    assert "put each value in its dedicated field instead" in JOB_SEARCH_PARAMETER_EXTRACTION_PROMPT

@@ -25,6 +25,11 @@ conforms to the following JSON Schema:
 
 {schema}
 
+The API searches job titles, company names, and skills using "keywords". Put
+only those search terms in "keywords". Do not include salary, location,
+seniority, remote type, job function, posting date, or other filter values in
+"keywords"; put each value in its dedicated field instead.
+
 The "response" field should summarize the query. The "salary_min" field is an
 integer in thousands. Convert relative posting-time requests such as "in the
 last week" to a Unix timestamp in milliseconds for "posted_after". Omit
