@@ -77,3 +77,7 @@ directories:
 The suite covers API response validation, query conversion, scraping,
 concurrent result association, scrape failure persistence, and filename
 fallback behavior.
+
+## Documentation
+
+More documentation can be found in the [docs folder](./docs/)
