@@ -21,7 +21,7 @@ from agent.workflows.job_search.workflow import (
     validate_llm_response_edge,
 )
 from models.job import JobDataLakeJob, JobDataLakeResponse
-from models.job_search_params import JobFunction, JobSearchParams, RemoteType
+from models.job_search_params import JobFunction, JobSearchParams, RemoteType, Seniority
 from tools.job_description_scraper import JobPostingDetails, JobPostingExtractionError
 
 
@@ -64,6 +64,8 @@ def test_validate_llm_response_node_returns_valid_query_for_state() -> None:
             "salary_min": 120000,
             "remote_type": "fully_remote",
             "location": "Seattle",
+            "posted_after": 1718000000000,
+            "seniority": ["Senior", "Staff"],
         }
     )
 
@@ -111,6 +113,8 @@ def test_run_job_search_query_node_converts_query_to_api_params() -> None:
             "salary_min": 120000,
             "remote_type": "fully_remote",
             "location": "Seattle",
+            "posted_after": 1718000000000,
+            "seniority": ["Senior", "Staff"],
         }
     )
     _, job_search_query = _validate_llm_json(raw_text)
@@ -137,6 +141,8 @@ def test_run_job_search_query_node_converts_query_to_api_params() -> None:
             location="Seattle",
             salary_min=120000,
             remote_type=RemoteType.FULLY_REMOTE,
+            posted_after=1718000000000,
+            seniority=(Seniority.SENIOR, Seniority.STAFF),
         )
     ]
 

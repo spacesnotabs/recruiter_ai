@@ -169,6 +169,8 @@ def _job_search_query_to_params(job_search_query: JobSearchQuery) -> JobSearchPa
         location=job_search_query.location,
         salary_min=job_search_query.salary_min,
         remote_type=job_search_query.remote_type,
+        posted_after=job_search_query.posted_after,
+        seniority=tuple(job_search_query.seniority) if job_search_query.seniority else None,
     )
 
 

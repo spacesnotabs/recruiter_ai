@@ -26,8 +26,10 @@ conforms to the following JSON Schema:
 {schema}
 
 The "response" field should summarize the query. The "salary_min" field is an
-integer in thousands. Omit optional fields when the user did not provide enough
-information to infer them reliably.
+integer in thousands. Convert relative posting-time requests such as "in the
+last week" to a Unix timestamp in milliseconds for "posted_after". Omit
+optional fields when the user did not provide enough information to infer them
+reliably.
 """.strip()
 
 

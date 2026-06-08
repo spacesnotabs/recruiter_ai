@@ -21,6 +21,8 @@ def test_validate_job_search_query_accepts_complete_job_search_json() -> None:
             "salary_min": "120000",
             "remote_type": "fully_remote",
             "location": "Seattle",
+            "posted_after": 1718000000000,
+            "seniority": ["Senior", "Staff"],
         }
     )
 
@@ -29,6 +31,8 @@ def test_validate_job_search_query_accepts_complete_job_search_json() -> None:
     assert isinstance(job_search_query, JobSearchQuery)
     assert job_search_query.keywords == "backend engineer"
     assert job_search_query.salary_min == 120000
+    assert job_search_query.posted_after == 1718000000000
+    assert [level.value for level in job_search_query.seniority or []] == ["Senior", "Staff"]
 
 
 def test_validate_job_search_query_allows_missing_job_function() -> None:

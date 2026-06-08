@@ -6,9 +6,9 @@ import logging
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
-from models.job_search_params import JobFunction, RemoteType
+from models.job_search_params import JobFunction, RemoteType, Seniority
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +32,14 @@ class JobSearchQuery(BaseModel):
     salary_min: Optional[int] = None
     remote_type: Optional[RemoteType] = None
     location: Optional[str] = None
+    posted_after: Optional[int] = Field(
+        default=None,
+        description="Unix timestamp in milliseconds; return only jobs posted after this time.",
+    )
+    seniority: Optional[list[Seniority]] = Field(
+        default=None,
+        description="One or more seniority levels accepted by the jobs API.",
+    )
 
 
 def validate_job_search_query(raw_text: str) -> JobSearchQuery | None:

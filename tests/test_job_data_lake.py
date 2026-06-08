@@ -12,7 +12,7 @@ import pytest
 from api import job_data_lake
 from api.job_data_lake import JobDataLakeClient
 from models.job import JobDataLakeResponse
-from models.job_search_params import JobFunction, JobSearchParams, RemoteType
+from models.job_search_params import JobFunction, JobSearchParams, RemoteType, Seniority
 
 
 def test_client_initializes_with_normalized_base_url() -> None:
@@ -123,6 +123,8 @@ def test_search_jobs_passes_default_endpoint_and_query_params(monkeypatch: pytes
         location="Seattle",
         salary_min=120000,
         remote_type=RemoteType.FULLY_REMOTE,
+        posted_after=1_718_000_000_000,
+        seniority=(Seniority.SENIOR, Seniority.STAFF),
     )
 
     result = asyncio.run(JobDataLakeClient("key").search_jobs(params))
@@ -140,6 +142,8 @@ def test_search_jobs_passes_default_endpoint_and_query_params(monkeypatch: pytes
                 "location": "Seattle",
                 "salary_min": 120000,
                 "remote_type": "fully_remote",
+                "posted_after": 1_718_000_000_000,
+                "seniority": "Senior,Staff",
             },
         )
     ]

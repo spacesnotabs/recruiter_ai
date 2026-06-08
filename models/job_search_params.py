@@ -31,6 +31,21 @@ class JobFunction(str, Enum):
     OTHER = "other"
 
 
+class Seniority(str, Enum):
+    """Seniority levels supported by the upstream jobs API."""
+
+    ENTRY = "Entry"
+    MID_LEVEL = "Mid Level"
+    SENIOR = "Senior"
+    STAFF = "Staff"
+    PRINCIPAL = "Principal"
+    MANAGER = "Manager"
+    DIRECTOR = "Director"
+    LEAD = "Lead"
+    C_LEVEL = "C Level"
+    INTERNSHIP = "Internship"
+
+
 @dataclass(frozen=True)
 class JobSearchParams:
     """Search filters supported by the upstream jobs API."""
@@ -40,6 +55,8 @@ class JobSearchParams:
     location: str | None = None
     salary_min: int | None = None
     remote_type: RemoteType | None = None
+    posted_after: int | None = None
+    seniority: tuple[Seniority, ...] | None = None
 
     def to_query_params(self) -> dict[str, str | int]:
         """Convert populated search fields to Job Data Lake query parameters."""
@@ -51,6 +68,8 @@ class JobSearchParams:
                 "location": self.location,
                 "salary_min": self.salary_min,
                 "remote_type": self.remote_type.value if self.remote_type else None,
+                "posted_after": self.posted_after,
+                "seniority": ",".join(level.value for level in self.seniority) if self.seniority else None,
             }.items()
             if value is not None
         }
