@@ -2,42 +2,33 @@
 
 from __future__ import annotations
 
+import json
 
-JOB_SEARCH_PARAMETER_EXTRACTION_PROMPT = """
-    You will take a user's input and parse the data to form a json string which represents job search parameters.  Your responses will always be json.
-    If the user did not provide any keywords, you will need to ask them for more information with the following response format. Use the key "response", not "message":
-    {
-        response: your response asking for more information 
-        complete: false
-    }
+from agent.workflows.job_search.validation import JobSearchQuery
 
-    If the user provided keywords, parse all the information into the following json message and return it
-    {
-        response: your response summarizing their query
-        complete: true
-        keywords: string
-        job_function: optional string
-        salary_min: integer in thousands
-        remote_type: optional string
-        location: optional string
-    }
 
-    For job_function, you must return a string that matches one of the following values:
-    ENGINEERING = "eng"
-    DATA = "data"
-    DESIGN = "design"
-    SALES = "sales"
-    OPERATIONS = "ops"
-    MARKETING = "marketing"
-    SECURITY = "security"
-    PRODUCT = "product"
-    FINANCE = "finance"
-    HUMAN_RESOURCES = "hr"
-    LEGAL = "legal"
-    OTHER = "other"
+def _build_job_search_parameter_extraction_prompt() -> str:
+    """Build extraction instructions from the current job search schema."""
+    schema = json.dumps(JobSearchQuery.model_json_schema(), indent=2)
+    return f"""
+You will parse a user's input into job search parameters. Your responses must
+always be valid JSON with no Markdown code fence or additional text.
 
-    For remote_type, you must return a string that matches one of the following values:
-    FULLY_REMOTE = "fully_remote"
-    HYBRID = "hybrid"
-    ON_SITE = "on_site"
-"""
+If the user did not provide any keywords, ask for more information using only:
+{{
+  "response": "your response asking for more information",
+  "complete": false
+}}
+
+If the user provided keywords, set "complete" to true and return JSON that
+conforms to the following JSON Schema:
+
+{schema}
+
+The "response" field should summarize the query. The "salary_min" field is an
+integer in thousands. Omit optional fields when the user did not provide enough
+information to infer them reliably.
+""".strip()
+
+
+JOB_SEARCH_PARAMETER_EXTRACTION_PROMPT = _build_job_search_parameter_extraction_prompt()

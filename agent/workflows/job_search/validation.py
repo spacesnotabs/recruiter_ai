@@ -28,7 +28,7 @@ class JobSearchQuery(BaseModel):
     response: str
     complete: bool
     keywords: str
-    job_function: JobFunction
+    job_function: Optional[JobFunction] = None
     salary_min: Optional[int] = None
     remote_type: Optional[RemoteType] = None
     location: Optional[str] = None

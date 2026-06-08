@@ -31,6 +31,22 @@ def test_validate_job_search_query_accepts_complete_job_search_json() -> None:
     assert job_search_query.salary_min == 120000
 
 
+def test_validate_job_search_query_allows_missing_job_function() -> None:
+    """A complete query may omit a job function when one cannot be inferred."""
+    raw_text = json.dumps(
+        {
+            "response": "Searching for Python roles.",
+            "complete": True,
+            "keywords": "Python",
+        }
+    )
+
+    job_search_query = validate_job_search_query(raw_text)
+
+    assert job_search_query is not None
+    assert job_search_query.job_function is None
+
+
 def test_validate_job_search_query_rejects_invalid_job_function(caplog: pytest.LogCaptureFixture) -> None:
     """Invalid enum values are rejected and logged."""
     raw_text = json.dumps(
