@@ -1,0 +1,11 @@
+{
+    "evals": [
+        {
+            "description": "Evaluate an LLM's ability to request more info from a user's job search request.",
+            "input_prompt": "Please get me a job!",
+            "expected_output": {
+                "complete": false
+            }
+        }
+    ]
+}
