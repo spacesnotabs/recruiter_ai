@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -13,8 +12,6 @@ from models.job_search_params import JobSearchParams
 
 JOB_DATA_LAKE_BASE_URL = "https://api.jobdatalake.com/"
 JOB_DATA_LAKE_JOBS_ENDPOINT = "/v1/jobs"
-JOB_DATA_LAKE_API_KEY_ENV_VAR = "JOB_DATA_LAKE_API_KEY"
-ROOT_ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 
 
 class JobDataLakeClient:

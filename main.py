@@ -7,9 +7,14 @@ import logging
 import tomllib
 from typing import Any
 
-from agent.llms.factory import OPEN_ROUTER_API_KEY_ENV_VAR, ModelFactory, ModelProvider
+from agent.llms.factory import ModelFactory, ModelProvider
 from agent.workflows.job_search.workflow import run_job_search_workflow
-from api.job_data_lake import JOB_DATA_LAKE_API_KEY_ENV_VAR, JobDataLakeClient, ROOT_ENV_PATH
+from api.job_data_lake import JobDataLakeClient
+from config.environment import (
+    JOB_DATA_LAKE_API_KEY_ENV_VAR,
+    OPENROUTER_API_KEY_ENV_VAR,
+    ROOT_ENV_PATH,
+)
 from tools.env_file import read_env_file_value
 
 logging.basicConfig(
@@ -27,7 +32,7 @@ def get_config_data(config_path: str) -> dict[str, Any]:
 
 async def run() -> int:
     """Run the proof-of-concept LangGraph job search workflow."""
-    openrouter_api_key = read_env_file_value(ROOT_ENV_PATH, OPEN_ROUTER_API_KEY_ENV_VAR)
+    openrouter_api_key = read_env_file_value(ROOT_ENV_PATH, OPENROUTER_API_KEY_ENV_VAR)
     if openrouter_api_key is None:
         return 0
 

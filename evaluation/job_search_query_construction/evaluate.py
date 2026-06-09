@@ -1,7 +1,7 @@
 import json
 from typing import Any
-from agent.llms.factory import ModelFactory, ModelProvider, OPEN_ROUTER_API_KEY_ENV_VAR
-from api.job_data_lake import ROOT_ENV_PATH
+from agent.llms.factory import ModelFactory, ModelProvider
+from config.environment import OPENROUTER_API_KEY_ENV_VAR, ROOT_ENV_PATH
 from tools.env_file import read_env_file_value
 from agent.prompts import JOB_SEARCH_PARAMETER_EXTRACTION_PROMPT
 from pathlib import Path
@@ -22,7 +22,7 @@ def evaluate_job_search_query_construction():
         model_provider = "openrouter"
         model_name = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
 
-        openrouter_api_key = read_env_file_value(ROOT_ENV_PATH, OPEN_ROUTER_API_KEY_ENV_VAR)
+        openrouter_api_key = read_env_file_value(ROOT_ENV_PATH, OPENROUTER_API_KEY_ENV_VAR)
         if openrouter_api_key is None:
             return 0
 

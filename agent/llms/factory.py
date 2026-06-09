@@ -9,9 +9,10 @@ import os
 from agent.llms.base import LLMClient
 from agent.llms.langchain import LangChainChatClient
 from agent.llms.local import LocalLLMClient
+from config.environment import OPENROUTER_API_KEY_ENV_VAR
 
 logger = logging.getLogger(__name__)
-OPEN_ROUTER_API_KEY_ENV_VAR = "OPENROUTER_API_KEY"
+
 
 class ModelProvider(Enum):
     """Supported language model providers."""
@@ -59,7 +60,7 @@ class ModelFactory:
         if not isinstance(model_name, str) or not model_name:
             raise ValueError("OPENROUTER model provider requires model_name to be a non-empty string.")
 
-        os.environ[OPEN_ROUTER_API_KEY_ENV_VAR] = api_key
+        os.environ[OPENROUTER_API_KEY_ENV_VAR] = api_key
         model_client = LangChainChatClient(model_name=model_name, model_provider=ModelProvider.OPENROUTER.value)
         model_client.set_api_key(api_key)
         return model_client
