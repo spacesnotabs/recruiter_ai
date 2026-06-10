@@ -8,7 +8,6 @@ import os
 
 from agent.llms.base import LLMClient
 from agent.llms.langchain import LangChainChatClient
-from agent.llms.local import LocalLLMClient
 from config.environment import OPENROUTER_API_KEY_ENV_VAR
 
 logger = logging.getLogger(__name__)
@@ -29,8 +28,8 @@ class ModelFactory:
         """Create and configure a language model client for the selected provider.
 
         ``provider`` selects the model backend. OPENROUTER requires
-        ``api_key`` and ``model_name`` arguments. OLLAMA
-        requires a ``filename`` argument and accepts an optional ``model_name``.
+        ``api_key`` and ``model_name`` arguments. OLLAMA requires a
+        ``model_name`` matching a model installed in the local Ollama service.
         Missing required provider arguments raise ``ValueError``.
         """
         model_client = ModelFactory._create_model_client(provider, **kwargs)
@@ -66,16 +65,13 @@ class ModelFactory:
         return model_client
 
     @staticmethod
-    def _create_ollama_client(**kwargs: object) -> LocalLLMClient:
-        """Create a local client configured with an Ollama model file path."""
-        filename = kwargs.get("filename")
-        if not isinstance(filename, str) or not filename:
-            raise ValueError("OLLAMA model provider requires filename.")
-
-        model_name = kwargs.get("model_name", ModelProvider.OLLAMA.value)
+    def _create_ollama_client(**kwargs: object) -> LangChainChatClient:
+        """Create a LangChain client for a model served by local Ollama."""
+        model_name = kwargs.get("model_name")
         if not isinstance(model_name, str) or not model_name:
             raise ValueError("OLLAMA model provider requires model_name to be a non-empty string.")
 
-        model_client = LocalLLMClient(model_name=model_name)
-        model_client.model_filepath = filename
-        return model_client
+        return LangChainChatClient(
+            model_name=model_name,
+            model_provider=ModelProvider.OLLAMA.value,
+        )

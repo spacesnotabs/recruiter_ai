@@ -8,22 +8,21 @@ import pytest
 
 from agent.llms.factory import ModelFactory, ModelProvider
 from agent.llms.langchain import LangChainChatClient
-from agent.llms.local import LocalLLMClient
 from config.environment import OPENROUTER_API_KEY_ENV_VAR
 
 
-def test_ollama_factory_configures_local_model_filename() -> None:
-    """OLLAMA construction stores the provider-specific model filename."""
-    model = ModelFactory.create(provider=ModelProvider.OLLAMA, filename="local-model.gguf")
+def test_ollama_factory_configures_langchain_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    """OLLAMA construction targets the named model in the local Ollama service."""
+    monkeypatch.setattr(LangChainChatClient, "configure", lambda self: None)
+    model = ModelFactory.create(provider=ModelProvider.OLLAMA, model_name="gemma4:e2b")
 
-    assert isinstance(model, LocalLLMClient)
-    assert model.model_name == ModelProvider.OLLAMA.value
-    assert model.model_filepath == "local-model.gguf"
+    assert isinstance(model, LangChainChatClient)
+    assert model.model_name == "gemma4:e2b"
 
 
-def test_ollama_factory_requires_filename() -> None:
-    """OLLAMA construction fails clearly when its filename is missing."""
-    with pytest.raises(ValueError, match="filename"):
+def test_ollama_factory_requires_model_name() -> None:
+    """OLLAMA construction fails clearly when its model name is missing."""
+    with pytest.raises(ValueError, match="model_name"):
         ModelFactory.create(provider=ModelProvider.OLLAMA)
 
 

@@ -31,20 +31,23 @@ def get_config_data(config_path: str) -> dict[str, Any]:
 
 
 async def run() -> int:
-    """Run the proof-of-concept LangGraph job search workflow."""
-    openrouter_api_key = read_env_file_value(ROOT_ENV_PATH, OPENROUTER_API_KEY_ENV_VAR)
-    if openrouter_api_key is None:
-        return 0
+    """Run the LangGraph job search workflow."""
+    config_data = get_config_data("config/config.toml")
+    model_provider = ModelProvider(config_data["llm"]["default"]["model_provider"])
+    model_name = config_data["llm"]["default"]["model_name"]
 
     job_data_lake_api_key = read_env_file_value(ROOT_ENV_PATH, JOB_DATA_LAKE_API_KEY_ENV_VAR)
     if job_data_lake_api_key is None:
         return 0
 
-    config_data = get_config_data("config/config.toml")
-    model_provider = config_data["llm"]["default"]["model_provider"]
-    model_name = config_data["llm"]["default"]["model_name"]
+    model_options: dict[str, object] = {"model_name": model_name}
+    if model_provider is ModelProvider.OPENROUTER:
+        openrouter_api_key = read_env_file_value(ROOT_ENV_PATH, OPENROUTER_API_KEY_ENV_VAR)
+        if openrouter_api_key is None:
+            return 0
+        model_options["api_key"] = openrouter_api_key
 
-    model_client = ModelFactory.create(provider=ModelProvider(model_provider), model_name=model_name, api_key=openrouter_api_key)
+    model_client = ModelFactory.create(provider=model_provider, **model_options)
     job_client = JobDataLakeClient(api_key=job_data_lake_api_key)
     return await run_job_search_workflow(model_client, job_client)
 

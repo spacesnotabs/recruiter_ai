@@ -22,9 +22,22 @@ include a scrape status and error so failed pages can be retried later.
 Create a `.env` file in the repository root with:
 
 ```text
-OPENROUTER_API_KEY=...
 JOB_DATA_LAKE_API_KEY=...
 ```
+
+`OPENROUTER_API_KEY` is required only when `model_provider` is `openrouter`.
+For local models, install and start Ollama, pull a model, and configure its tag
+in `config/config.toml`:
+
+```toml
+[llm.default]
+model_provider = "ollama"
+model_name = "gemma4:e2b"
+```
+
+Ollama owns the files under the local model directory. The application connects
+to the local Ollama service and identifies models by tag rather than by file
+path.
 
 Install dependencies and run the workflow:
 
@@ -35,6 +48,19 @@ Install dependencies and run the workflow:
 
 The workflow creates `data/` when results are saved. That directory contains
 generated local data and is ignored by Git.
+
+## Saved Job Viewer
+
+Run the lightweight read-only viewer to browse records in `data/`:
+
+```powershell
+.\.venv\Scripts\python.exe .\job_viewer.py
+```
+
+The viewer opens `http://127.0.0.1:8000/` in the default browser. It reads the
+JSON files directly and reloads them on each page request. Use `--no-browser`
+to prevent automatic browser launch, or `--data-dir` to inspect another
+directory.
 
 ## Stored Job Records
 
