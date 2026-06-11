@@ -80,6 +80,20 @@ def test_validate_llm_response_node_returns_valid_query_for_state() -> None:
     assert update["job_search_query"].keywords == "backend engineer"
 
 
+def test_validate_llm_response_node_accepts_json_fence() -> None:
+    """A complete Markdown JSON fence is removed before validation."""
+    raw_text = """```json
+{"response": "Searching for Python jobs.", "complete": true, "keywords": "Python"}
+```"""
+
+    update = validate_llm_response_node(
+        {"messages": [AIMessage(content=raw_text)], "job_search_query": None, "validation_result": None}
+    )
+
+    assert update["validation_result"] is ValidationResult.VALID_QUERY
+    assert update["job_search_query"].keywords == "Python"
+
+
 def test_validate_llm_response_edge_routes_valid_query_to_search() -> None:
     """A stored valid validation result transitions to the search node."""
     next_node = validate_llm_response_edge(

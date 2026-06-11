@@ -19,6 +19,7 @@ from agent.workflows.job_search.validation import JobSearchQuery, ValidationResu
 from models.job import JobDataLakeJob
 from models.job_search_params import JobSearchParams
 from tools.job_description_scraper import JobPostingDetails, JobPostingExtractionError, fetch_job_posting
+from tools.json_text import strip_json_fence
 
 logger = logging.getLogger(__name__)
 
@@ -34,26 +35,35 @@ def prompt_user_node(state: JobSearchState) -> dict[str, list[HumanMessage]]:
     if messages:
         last_message = state["messages"][-1]
         if isinstance(last_message, AIMessage):
-            message_json = json.loads(last_message.text)
+            message_json = json.loads(strip_json_fence(last_message.text))
             print(f"AI {message_json.get('response')}")
 
     prompt: str = input("YOU: ")
     return {"messages": [HumanMessage(content=prompt)]}
 
 
-def llm_call_node(state: JobSearchState, runtime: Runtime[JobSearchContext]) -> dict[str, list[AIMessage]]:
+def llm_call_node(state: JobSearchState, runtime: Runtime[JobSearchContext]) -> dict[str, Any]:
     """Prompt the configured LLM with the latest user message."""
     response: str | None = runtime.context.llm_client.prompt(state["messages"][-1].text)
-    print(f"AI: {response}")
-    return {"messages": [AIMessage(content=response)]}
+    if response is None:
+        retry_count = state["response_validation_retry_count"] + 1
+        return {
+            "messages": [AIMessage(content=response)],
+            "errors": ["Error: LLM did not return a response"], 
+            "response_validation_retry_count": retry_count
+        }
+    else:
+        response = strip_json_fence(response)
+        print(f"AI: {response}")
+        return {"messages": [AIMessage(content=response)]}
 
 
 def llm_returned_invalid_json_node(state: JobSearchState) -> dict[str, Any]:
     """Append a retry instruction when the model response cannot be used."""
     retry_count = state["response_validation_retry_count"] + 1
     return {
-        "errors": ["Error: LLM returned invalid JSON"],
         "messages": [HumanMessage(content="The JSON you returned was invalid. Please try again.")],
+        "errors": ["Error: LLM returned invalid JSON"],
         "response_validation_retry_count": retry_count,
     }
 
@@ -61,7 +71,7 @@ def llm_returned_invalid_json_node(state: JobSearchState) -> dict[str, Any]:
 def validate_llm_response_node(state: JobSearchState) -> dict[str, JobSearchQuery | ValidationResult | None]:
     """Validate the latest LLM response and return durable state updates."""
     messages = state["messages"]
-    last_message: str = messages[-1].text
+    last_message = strip_json_fence(messages[-1].text)
 
     validation_result, job_search_query = _validate_llm_json(last_message)
     return {"validation_result": validation_result, "job_search_query": job_search_query}
