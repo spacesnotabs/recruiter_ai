@@ -29,3 +29,5 @@ class JobSearchState(TypedDict):
     validation_result: ValidationResult | None
     job_search_results: JobDataLakeResponse | None
     job_search_succeeded: bool 
+    errors: Annotated[list[str], operator.add]
+    response_validation_retry_count: int

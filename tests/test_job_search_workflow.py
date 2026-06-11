@@ -6,18 +6,21 @@ import asyncio
 import json
 from types import SimpleNamespace
 
-from langchain.messages import AIMessage
+from langchain.messages import AIMessage, HumanMessage
 import pytest
 
 from agent.workflows.job_search.nodes import (
     _job_file_identifier,
     _validate_llm_json,
+    error_handler_node,
     handle_job_search_results_node,
+    llm_returned_invalid_json_node,
     run_job_search_query_node,
     validate_llm_response_node,
 )
 from agent.workflows.job_search.validation import ValidationResult
 from agent.workflows.job_search.workflow import (
+    NUM_VALIDATION_RETRIES,
     validate_llm_response_edge,
 )
 from models.job import JobDataLakeJob, JobDataLakeResponse
@@ -84,6 +87,64 @@ def test_validate_llm_response_edge_routes_valid_query_to_search() -> None:
     )
 
     assert next_node == "run_job_search_query"
+
+
+def test_invalid_json_node_records_error_and_increments_retry_count() -> None:
+    """An invalid response records its failure and prepares one model retry."""
+    update = llm_returned_invalid_json_node(
+        {
+            "messages": [],
+            "response_validation_retry_count": 1,
+        }
+    )
+
+    assert update["errors"] == ["Error: LLM returned invalid JSON"]
+    assert update["response_validation_retry_count"] == 2
+    assert update["messages"] == [
+        HumanMessage(content="The JSON you returned was invalid. Please try again.")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("retry_count", "expected_node"),
+    [
+        (NUM_VALIDATION_RETRIES - 1, "llm_returned_invalid_json"),
+        (NUM_VALIDATION_RETRIES, "error_handler"),
+    ],
+)
+def test_invalid_json_routing_honors_retry_limit(
+    retry_count: int,
+    expected_node: str,
+) -> None:
+    """Invalid JSON retries below the limit and stops once it is reached."""
+    next_node = validate_llm_response_edge(
+        {
+            "messages": [],
+            "job_search_query": None,
+            "validation_result": ValidationResult.INVALID_JSON,
+            "response_validation_retry_count": retry_count,
+        }
+    )
+
+    assert next_node == expected_node
+
+
+def test_error_handler_reports_failure_to_user_and_log(
+    caplog: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The terminal error node emits a generic user message and logs details."""
+    errors = [
+        "Error: LLM returned invalid JSON",
+        "Error: LLM returned invalid JSON",
+    ]
+
+    error_handler_node({"errors": errors})
+
+    assert capsys.readouterr().out == (
+        "AI: An error occurred during workflow execution. Please try again.\n"
+    )
+    assert "Error details: " + ",".join(errors) in caplog.text
 
 
 def test_run_job_search_query_node_converts_query_to_api_params() -> None:

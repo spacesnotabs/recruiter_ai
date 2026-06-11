@@ -48,9 +48,14 @@ def llm_call_node(state: JobSearchState, runtime: Runtime[JobSearchContext]) -> 
     return {"messages": [AIMessage(content=response)]}
 
 
-def llm_returned_invalid_json_node(state: JobSearchState) -> dict[str, list[HumanMessage]]:
+def llm_returned_invalid_json_node(state: JobSearchState) -> dict[str, Any]:
     """Append a retry instruction when the model response cannot be used."""
-    return {"messages": [HumanMessage(content="The JSON you returned was invalid. Please try again.")]}
+    retry_count = state["response_validation_retry_count"] + 1
+    return {
+        "errors": ["Error: LLM returned invalid JSON"],
+        "messages": [HumanMessage(content="The JSON you returned was invalid. Please try again.")],
+        "response_validation_retry_count": retry_count,
+    }
 
 
 def validate_llm_response_node(state: JobSearchState) -> dict[str, JobSearchQuery | ValidationResult | None]:
@@ -107,6 +112,14 @@ async def handle_job_search_results_node(state: JobSearchState) -> None:
         _write_job_record(job, record)
 
     print(f"AI: Saved {len(records)} job records to {JOB_DATA_DIRECTORY}.")
+    return None
+
+
+def error_handler_node(state: JobSearchState) -> None:
+    """Errors occurred during the workflow and user will need to try again."""
+    errors = state.get("errors", [])
+    print("AI: An error occurred during workflow execution. Please try again.")
+    logger.error("Error details: %s", ",".join(errors))
     return None
 
 

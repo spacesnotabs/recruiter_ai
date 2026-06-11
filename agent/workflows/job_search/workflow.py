@@ -15,11 +15,13 @@ from agent.workflows.job_search.nodes import (
     validate_llm_response_node,
     run_job_search_query_node,
     handle_job_search_results_node,
+    error_handler_node,
 )
 from agent.workflows.job_search.state import JobSearchContext, JobSearchState
 from agent.workflows.job_search.validation import ValidationResult
 from api.job_data_lake import JobDataLakeClient
 
+NUM_VALIDATION_RETRIES = 2
 
 def build_job_search_workflow():
     """Build the job search workflow graph."""
@@ -31,6 +33,7 @@ def build_job_search_workflow():
     workflow.add_node("llm_returned_invalid_json", llm_returned_invalid_json_node)
     workflow.add_node("run_job_search_query", run_job_search_query_node)
     workflow.add_node("handle_job_search_results", handle_job_search_results_node)
+    workflow.add_node("error_handler", error_handler_node)
 
     workflow.add_edge(START, "prompt_user")
     workflow.add_edge("prompt_user", "llm_call")
@@ -39,6 +42,7 @@ def build_job_search_workflow():
     workflow.add_edge("llm_returned_invalid_json", "llm_call")
     workflow.add_edge("run_job_search_query", "handle_job_search_results")
     workflow.add_edge("handle_job_search_results", END)
+    workflow.add_edge("error_handler", END)
 
     return workflow.compile()
 
@@ -55,6 +59,8 @@ async def run_job_search_workflow(llm_client: LLMClient, job_client: JobDataLake
         validation_result=None, 
         job_search_results=None,
         job_search_succeeded=False,
+        errors=[],
+        response_validation_retry_count=0,
         )
 
     await app.ainvoke(input=state, context=JobSearchContext(llm_client=llm_client, job_client=job_client))
@@ -62,13 +68,16 @@ async def run_job_search_workflow(llm_client: LLMClient, job_client: JobDataLake
     return 1
 
 
-def validate_llm_response_edge(state: JobSearchState) -> Literal["llm_returned_invalid_json", "prompt_user", "run_job_search_query"]:
+def validate_llm_response_edge(state: JobSearchState) -> Literal["llm_returned_invalid_json", "prompt_user", "run_job_search_query", "error_handler"]:
     """Route the workflow based on the stored validation result."""
     json_validation_result = state["validation_result"]
 
     if json_validation_result == ValidationResult.INVALID_JSON:
         print("LLM returned invalid JSON.")
-        return "llm_returned_invalid_json"
+        if state["response_validation_retry_count"] >= NUM_VALIDATION_RETRIES:
+            return "error_handler"
+        else:
+            return "llm_returned_invalid_json"
     elif json_validation_result == ValidationResult.INCOMPLETE_QUERY:
         print("LLM indicated the query is not complete. Prompting user for more information.")
         return "prompt_user"
