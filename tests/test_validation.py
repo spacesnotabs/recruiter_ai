@@ -7,7 +7,12 @@ import logging
 
 import pytest
 
-from agent.workflows.job_search.validation import JobSearchQuery, validate_job_search_query
+from agent.workflows.job_search.validation import (
+    JobDescription,
+    JobSearchQuery,
+    validate_job_description,
+    validate_job_search_query,
+)
 
 
 def test_validate_job_search_query_accepts_complete_job_search_json() -> None:
@@ -69,3 +74,20 @@ def test_validate_job_search_query_rejects_invalid_job_function(caplog: pytest.L
         assert validate_job_search_query(raw_text) is None
 
     assert "The following text was not valid" in caplog.text
+
+
+def test_validate_job_description_allows_missing_optional_metadata() -> None:
+    """Only the extracted source description is mandatory for enrichment."""
+    job_description = validate_job_description(json.dumps({"description": "Build APIs."}))
+
+    assert isinstance(job_description, JobDescription)
+    assert job_description.description == "Build APIs."
+    assert job_description.title is None
+    assert job_description.salary is None
+    assert job_description.location is None
+
+
+@pytest.mark.parametrize("raw_text", ["{}", '{"description": ""}', '{"description": "   "}'])
+def test_validate_job_description_rejects_missing_or_empty_description(raw_text: str) -> None:
+    """Enrichment does not accept a model result without usable description text."""
+    assert validate_job_description(raw_text) is None

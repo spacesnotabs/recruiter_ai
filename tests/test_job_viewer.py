@@ -126,3 +126,22 @@ def test_render_page_handles_empty_directory() -> None:
 
     assert "No saved jobs yet" in page
     assert "0 saved roles" in page
+
+
+def test_render_page_displays_pending_enrichment_without_error_styling(tmp_path: Path) -> None:
+    """New API-only records remain readable before description enrichment runs."""
+    _write_job(tmp_path, "job_pending.json", "Pending Role", "Example")
+    payload_path = tmp_path / "job_pending.json"
+    payload = json.loads(payload_path.read_text(encoding="utf-8"))
+    payload["scrape"] = {
+        "status": "pending",
+        "error": None,
+        "details": None,
+        "input_truncated": False,
+    }
+    payload_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    page = render_page(load_saved_jobs(tmp_path))
+
+    assert 'class="status-pending">pending' in page
+    assert "No scraped description is available." in page
