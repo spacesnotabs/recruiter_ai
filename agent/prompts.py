@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from agent.workflows.job_search.validation import JobSearchQuery
+from agent.workflows.job_search.validation import JobSearchQuery, JobDescription
 
 
 def _build_job_search_parameter_extraction_prompt() -> str:
@@ -38,4 +38,25 @@ reliably.
 """.strip()
 
 
+def _build_job_description_extraction_prompt() -> str:
+    """Build extraction instructions for cleaned job-posting text."""
+    schema = json.dumps(JobDescription.model_json_schema(), indent=2)
+    return f"""
+You will be given cleaned plain text from a public job-posting page. Extract the
+job description and the requested metadata from that text. The description must
+preserve the source wording; do not summarize, rewrite, or invent content.
+
+Return only valid JSON, with no Markdown code fence or additional text, that
+conforms to this JSON Schema:
+
+{schema}
+
+The description is required and must be non-empty. If title, salary, or location
+is not explicitly present in the supplied text, return null for that field. Do
+not infer missing metadata. The Job Data Lake record is authoritative for its
+own metadata fields.
+""".strip()
+
+
 JOB_SEARCH_PARAMETER_EXTRACTION_PROMPT = _build_job_search_parameter_extraction_prompt()
+JOB_SEARCH_DESCRIPTION_EXTRACTION_PROMPT = _build_job_description_extraction_prompt()
