@@ -6,7 +6,7 @@ import logging
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from models.job_search_params import JobFunction, RemoteType, Seniority
 
@@ -47,6 +47,21 @@ class JobSearchQuery(BaseModel):
         description="One or more seniority levels accepted by the jobs API.",
     )
 
+class JobDescription(BaseModel):
+    """LLM-extracted details from a cleaned public job-posting page."""
+
+    description: str = Field(min_length=1)
+    salary: str | None = None
+    location: str | None = None
+    title: str | None = None
+
+    @field_validator("description")
+    @classmethod
+    def description_must_contain_text(cls, value: str) -> str:
+        """Reject whitespace-only descriptions while preserving valid source text."""
+        if not value.strip():
+            raise ValueError("description must contain non-whitespace text")
+        return value
 
 def validate_job_search_query(raw_text: str) -> JobSearchQuery | None:
     """Parse raw LLM text as complete job search query JSON.
@@ -63,4 +78,21 @@ def validate_job_search_query(raw_text: str) -> JobSearchQuery | None:
         return job_search_query
     except ValidationError:
         logger.error("The following text was not valid: %s", raw_text)
+        return None
+
+
+def validate_job_description(raw_text: str) -> JobDescription | None:
+    """Parse LLM text as a job-description extraction response.
+
+    Args:
+        raw_text: JSON text emitted by the description-extraction model.
+
+    Returns:
+        A validated ``JobDescription`` when the response has a non-empty
+        description; otherwise ``None``.
+    """
+    try:
+        return JobDescription.model_validate_json(raw_text)
+    except ValidationError:
+        logger.error("The following text was not a valid job description: %s", raw_text)
         return None

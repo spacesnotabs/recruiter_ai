@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
-from dataclasses import asdict
 from hashlib import sha256
 import json
 import logging
@@ -18,13 +16,11 @@ from agent.workflows.job_search.state import JobSearchContext, JobSearchState
 from agent.workflows.job_search.validation import JobSearchQuery, ValidationResult, validate_job_search_query
 from models.job import JobDataLakeJob
 from models.job_search_params import JobSearchParams
-from tools.job_description_scraper import JobPostingDetails, JobPostingExtractionError, fetch_job_posting
 from tools.json_text import strip_json_fence
 
 logger = logging.getLogger(__name__)
 
 JOB_DATA_DIRECTORY = Path(__file__).resolve().parents[3] / "data"
-MAX_DESCRIPTION_FETCHES = 5
 SAFE_FILENAME_PATTERN = re.compile(r"[^A-Za-z0-9._-]+")
 
 
@@ -94,12 +90,11 @@ async def run_job_search_query_node(
 
 
 async def handle_job_search_results_node(state: JobSearchState) -> None:
-    """Fetch descriptions and save each returned job as a local JSON record.
+    """Save each returned API job as a local record pending enrichment.
 
-    Description requests run concurrently with a small upper bound to avoid
-    overwhelming job sites. A failed scrape is recorded with the source job so
-    one inaccessible page does not prevent the remaining results from being
-    saved.
+    Fetching and LLM-based description extraction run in the separate job
+    description workflow. This boundary keeps a successful API search from
+    depending on public job-posting pages or model availability.
 
     Args:
         state: Workflow state containing a validated jobs API response.
@@ -113,15 +108,10 @@ async def handle_job_search_results_node(state: JobSearchState) -> None:
         raise ValueError("Job search results are required before job records can be saved.")
 
     JOB_DATA_DIRECTORY.mkdir(parents=True, exist_ok=True)
-    semaphore = asyncio.Semaphore(MAX_DESCRIPTION_FETCHES)
-    records = await asyncio.gather(
-        *(_build_job_record(job, semaphore) for job in job_search_results.jobs)
-    )
+    for job in job_search_results.jobs:
+        _write_job_record(job, _build_job_record(job))
 
-    for job, record in zip(job_search_results.jobs, records, strict=True):
-        _write_job_record(job, record)
-
-    print(f"AI: Saved {len(records)} job records to {JOB_DATA_DIRECTORY}.")
+    print(f"AI: Saved {len(job_search_results.jobs)} job records to {JOB_DATA_DIRECTORY}.")
     return None
 
 
@@ -133,34 +123,17 @@ def error_handler_node(state: JobSearchState) -> None:
     return None
 
 
-async def _build_job_record(
-    job: JobDataLakeJob,
-    semaphore: asyncio.Semaphore,
-) -> dict[str, Any]:
-    """Combine one API job with its scraped posting details."""
-    scrape_details: JobPostingDetails | None = None
-    scrape_error: str | None = None
-
-    try:
-        async with semaphore:
-            scrape_details = await fetch_job_posting(url=job.url)
-    except JobPostingExtractionError as error:
-        scrape_error = str(error)
-        logger.warning(
-            "Could not extract job description for %s at %s: %s",
-            job.title,
-            job.company_name or "unknown company",
-            error,
-        )
-
+def _build_job_record(job: JobDataLakeJob) -> dict[str, Any]:
+    """Build one source record with an explicitly pending scrape section."""
     return {
         "source": "job_data_lake",
         "source_job_id": job.job_handle,
         "job": job.model_dump(mode="json"),
         "scrape": {
-            "status": "succeeded" if scrape_details else "failed",
-            "error": scrape_error,
-            "details": asdict(scrape_details) if scrape_details else None,
+            "status": "pending",
+            "error": None,
+            "details": None,
+            "input_truncated": False,
         },
     }
 

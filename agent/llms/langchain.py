@@ -56,13 +56,19 @@ class LangChainChatClient(LLMClient):
         """Send a prompt with conversation history and return model text."""
         logger.debug("Prompting model with input: %s", prompt)
         if self.system_prompt is None:
-            raise ValueError("System prompt is not set. Please call set_system_prompt() before prompting.")
+            raise ValueError(
+                "System prompt is not set. Please call set_system_prompt() before prompting."
+            )
 
         if self._model is None:
-            raise ValueError("Model is not configured. Please call configure() before prompting.")
+            raise ValueError(
+                "Model is not configured. Please call configure() before prompting."
+            )
 
         # TODO Validate user prompt
         self._conversation_history.append(HumanMessage(content=prompt))
+
+        # TODO: Add error handling for model invocation
         response: AIMessage = self._model.invoke(input=self._conversation_history)
         self._conversation_history.append(response)
 
