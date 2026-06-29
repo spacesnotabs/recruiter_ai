@@ -166,6 +166,7 @@ def render_page(
     .fact dd {{ margin: 5px 0 0; }}
     .description {{ white-space: pre-wrap; line-height: 1.72; overflow-wrap: anywhere; }}
     .status-ok {{ color: var(--accent); }}
+    .status-pending {{ color: var(--muted); }}
     .status-error, .error {{ color: var(--danger); }}
     a.external {{ color: var(--accent); font-weight: 650; }}
     details summary {{ cursor: pointer; color: var(--muted); }}
@@ -348,7 +349,11 @@ def _render_job_detail(saved: SavedJob) -> str:
     description = details.get("description") or "No scraped description is available."
     url = job.get("url")
     status = _display_value(scrape.get("status"), "unknown")
-    status_class = "status-ok" if status == "succeeded" else "status-error"
+    status_class = (
+        "status-ok" if status == "succeeded"
+        else "status-pending" if status == "pending"
+        else "status-error"
+    )
 
     metadata = [
         *_as_strings(job.get("locations")),

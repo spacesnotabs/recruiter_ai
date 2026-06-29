@@ -43,10 +43,13 @@ file and exits without running when either value is missing.
 1. The workflow validates LLM-produced search criteria.
 2. `JobDataLakeClient.search_jobs()` fetches the `/v1/jobs` response and
    validates it as `JobDataLakeResponse`.
-3. The result-handling node fetches job descriptions concurrently, with at
-   most five in flight.
-4. Each job is saved to `data/job_<identifier>.json` with the complete
-   Job Data Lake record and scrape status, details, or error.
+3. The result-handling node saves each API result to
+   `data/job_<identifier>.json` with the complete Job Data Lake record and a
+   pending scrape section.
+4. The callable job-description workflow fetches saved job URLs sequentially,
+   cleans HTML, and uses the LLM to fill missing descriptions. It caps model
+   input at 30,000 cleaned-text characters and records whether truncation
+   occurred.
 
 `job_handle` is used for the local identifier when present. Jobs without a
 handle use a deterministic hash of the URL. Local JSON files are temporary
@@ -65,8 +68,10 @@ persistence for development, not the future database schema.
 - Keep upstream response models separate from display formatting and future
   database models. API models describe provider data; persistence models should
   describe application-owned records.
-- Bound concurrent external requests. A single inaccessible job page should be
-  recorded as a scrape failure without discarding other jobs.
+- Keep description enrichment sequential while the LLM client retains
+  conversation state. Reset its system prompt before each posting. A single
+  inaccessible page or invalid model result must be recorded as a scrape
+  failure without discarding other jobs; retry invalid output once.
 - Keep workflow nodes focused on orchestration. When database storage is added,
   move file/database writes and duplicate handling behind a storage or
   repository abstraction rather than adding more persistence behavior to the

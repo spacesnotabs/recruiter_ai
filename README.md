@@ -1,8 +1,8 @@
 # Recruiter AI
 
-Recruiter AI is a Python 3.12 proof of concept that uses an LLM-driven
-LangGraph workflow to collect job search criteria, query Job Data Lake, scrape
-job descriptions, and store local job records for later processing.
+Recruiter AI is a Python 3.12 proof of concept that uses LangGraph workflows
+to collect job search criteria, query Job Data Lake, and enrich saved job
+records with LLM-extracted descriptions.
 
 ## Current Workflow
 
@@ -10,12 +10,14 @@ job descriptions, and store local job records for later processing.
 2. The async Job Data Lake client calls `/v1/jobs`.
 3. Pydantic models validate the response and convert fields such as Unix
    timestamps and salaries into typed Python values.
-4. Job posting pages are scraped concurrently, with at most five requests in
-   flight.
-5. Each combined API and scrape record is written to `data/`.
+4. Each API job record is written to `data/` with description enrichment marked
+   as pending.
 
-Scrape failures do not discard the Job Data Lake record. The saved JSON records
-include a scrape status and error so failed pages can be retried later.
+The separate description-enrichment workflow fetches each saved job URL,
+converts HTML to clean text, and asks an LLM to extract the description and
+optional posting metadata. It processes records sequentially because the model
+client preserves conversation state. Per-job fetch or extraction failures do
+not discard the Job Data Lake record; they are saved as retryable failures.
 
 ## Setup
 
@@ -49,6 +51,25 @@ Install dependencies and run the workflow:
 The workflow creates `data/` when results are saved. That directory contains
 generated local data and is ignored by Git.
 
+## Description Enrichment
+
+Description enrichment is intentionally callable rather than connected to
+`main.py`. Construct and configure an `LLMClient` as the application normally
+does, then call:
+
+```python
+from agent.workflows.job_description.workflow import run_job_description_workflow
+
+summary = await run_job_description_workflow(model_client)
+```
+
+The workflow selects each `job_*.json` record that has no non-empty
+`scrape.details.description`, including prior failures. It skips existing
+descriptions, fetches the job URL, cleans its HTML, and limits LLM input to the
+first 30,000 cleaned-text characters. The saved `scrape.input_truncated` flag
+shows whether that limit was applied. Invalid model output receives one
+corrective retry before being recorded as a failure.
+
 ## Saved Job Viewer
 
 Run the lightweight read-only viewer to browse records in `data/`:
@@ -78,14 +99,18 @@ Each record has this high-level structure:
     "url": "https://example.com/jobs/1"
   },
   "scrape": {
-    "status": "succeeded",
+    "status": "pending",
     "error": null,
-    "details": {
-      "description": "..."
-    }
+    "details": null,
+    "input_truncated": false
   }
 }
 ```
+
+After description enrichment, `status` is `succeeded` with `details` containing
+the required description and nullable `title`, `salary`, and `location` fields.
+Failures use `status: "failed"`, retain the source record, and can be retried by
+running enrichment again.
 
 These files are temporary development persistence. The API response models in
 `models/job.py` are intentionally separate from a future application-owned
@@ -100,9 +125,9 @@ directories:
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-The suite covers API response validation, query conversion, scraping,
-concurrent result association, scrape failure persistence, and filename
-fallback behavior.
+The suite covers API response validation, query conversion, pending-record
+persistence, HTML fetching and cleanup, LLM extraction retries, retryable
+failure persistence, and filename fallback behavior.
 
 ## Documentation
 
