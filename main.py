@@ -36,20 +36,32 @@ async def run() -> int:
     model_provider = ModelProvider(config_data["llm"]["default"]["model_provider"])
     model_name = config_data["llm"]["default"]["model_name"]
 
-    job_data_lake_api_key = read_env_file_value(ROOT_ENV_PATH, JOB_DATA_LAKE_API_KEY_ENV_VAR)
+    job_data_lake_api_key = read_env_file_value(
+        ROOT_ENV_PATH, JOB_DATA_LAKE_API_KEY_ENV_VAR
+    )
     if job_data_lake_api_key is None:
+        print(f"Error: {JOB_DATA_LAKE_API_KEY_ENV_VAR} not found in environment.")
         return 0
 
     model_options: dict[str, object] = {"model_name": model_name}
     if model_provider is ModelProvider.OPENROUTER:
-        openrouter_api_key = read_env_file_value(ROOT_ENV_PATH, OPENROUTER_API_KEY_ENV_VAR)
+        openrouter_api_key = read_env_file_value(
+            ROOT_ENV_PATH, OPENROUTER_API_KEY_ENV_VAR
+        )
         if openrouter_api_key is None:
+            print(f"Error: {OPENROUTER_API_KEY_ENV_VAR} not found in environment.")
             return 0
         model_options["api_key"] = openrouter_api_key
 
     model_client = ModelFactory.create(provider=model_provider, **model_options)
     job_client = JobDataLakeClient(api_key=job_data_lake_api_key)
-    return await run_job_search_workflow(model_client, job_client)
+    try:
+        result = await run_job_search_workflow(model_client, job_client)
+    except Exception as e:
+        logging.error(f"Error running job search workflow: {e}")
+        return 1
+
+    return result
 
 
 def main() -> int:
