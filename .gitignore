@@ -34,5 +34,6 @@ Thumbs.db
 # logs
 *.log   
 
-# Locally persisted job search results
+# project specific
 data/
+output/

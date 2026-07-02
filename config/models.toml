@@ -1,0 +1,7 @@
+[model.nemo3nano]
+name="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+provider="openrouter"
+
+[model.gemma3]
+name="gemma3n:e4b"
+provider="ollama"
