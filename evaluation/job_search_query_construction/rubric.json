@@ -1,11 +1,46 @@
 {
-    "evals": [
+  "evals": [
+    {
+      "evaluation_prompt": "JOB_SEARCH_PARAMETER_EXTRACTION_PROMPT",
+      "description": "Evaluate the LLM's output of job search parameters.",
+      "test_cases": [
         {
-            "description": "Evaluate an LLM's ability to request more info from a user's job search request.",
-            "input_prompt": "Please get me a job!",
-            "expected_output": {
-                "complete": false
-            }
+          "id": "job_search_001",
+          "input_prompt": "Please get me a job!",
+          "expected_output": {
+            "complete": false
+          }
+        },
+        {
+          "id": "job_search_002",
+          "input_prompt": "Find me a senior software engineer job in Seattle WA, California",
+          "expected_output": {
+            "complete": true,
+            "keywords": "software engineer",
+            "seniority": ["Senior"]
+          }
+        },
+        {
+          "id": "job_search_003",
+          "input_prompt": "",
+          "expected_output": {}
+        },
+        {
+          "id": "job_search_004",
+          "input_prompt": "",
+          "expected_output": {}
+        },
+        {
+          "id": "job_search_005",
+          "input_prompt": "",
+          "expected_output": {}
+        },
+        {
+          "id": "job_search_006",
+          "input_prompt": "",
+          "expected_output": {}
         }
-    ]
+      ]
+    }
+  ]
 }
