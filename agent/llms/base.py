@@ -29,6 +29,10 @@ class LLMClient:
         """Set the system prompt used to guide future model responses."""
         self._system_prompt = prompt
 
+    def reset_history(self) -> None:
+        """Reset the conversation history"""
+        raise NotImplementedError("Subclasses must implement this method.")
+
     def prompt(self, prompt: str) -> str:
         """Send a prompt to the model and return its text response."""
         raise NotImplementedError("Subclasses must implement this method.")

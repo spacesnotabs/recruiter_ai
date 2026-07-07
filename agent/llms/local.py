@@ -28,6 +28,10 @@ class LocalLLMClient(LLMClient):
         """Return a placeholder response for local model generation."""
         return f"Generated response for prompt: {prompt} with system prompt: {self.system_prompt}"
 
+    def reset_history(self) -> None:
+        """Reset the conversation history"""
+        pass
+
     def configure(self, **kwargs: object) -> None:
         """Accept local model configuration options for future use."""
         pass

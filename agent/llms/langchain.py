@@ -42,6 +42,10 @@ class LangChainChatClient(LLMClient):
         """Store an API key for callers that manage credentials explicitly."""
         self._api_key = api_key
 
+    def reset_history(self) -> None:
+        """Reset the conversation history"""
+        self._conversation_history = [SystemMessage(content=self.system_prompt)]
+
     def configure(self, **kwargs: object) -> None:
         """Initialize the LangChain chat model if it has not been created."""
         if self._model is None:
